@@ -1,0 +1,216 @@
+\documentclass[graybox,envcountchap]{svmult}
+
+
+\usepackage{mathptmx}
+\usepackage{helvet}
+\usepackage{courier}
+\usepackage{braket} % used for Dirac notation
+\usepackage{algorithmicx}
+\usepackage{algpseudocode} % together for code
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{simplewick}
+\usepackage{type1cm}         
+\usepackage{exercise}
+\usepackage{makeidx}         % allows index generation
+\usepackage{rotating}
+\usepackage{graphicx}        % standard LaTeX graphics tool
+                             % when including figure files
+\usepackage{multicol}        % used for the two-column index
+\usepackage[bottom]{footmisc}% places footnotes at page bottom
+% \usepackage[usenames,dvipsnames,x11names]{xcolor}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{epic}
+\usepackage{eepic}
+\usepackage{a4wide}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[T1]{fontenc}
+\usepackage{cite} % [2,3,4] --> [2--4]
+\usepackage{shadow}
+\usepackage[pdfencoding=auto]{hyperref}   % required to deal with math expressions 
+                                          % in hyperref / texorpdfstring
+% The bookmark package ameliorates and issue with the PDF file's index being garbled and missing
+% many entries, possibly due to umlauts in the author names. There is still the issue that
+% the author by-line appears in the index in addition to the chapter title, and that the byline
+% instead of the title expand into the toc for the chapter.
+\usepackage{bookmark}                     
+\usepackage{bezier}
+\usepackage{pstricks}
+\setcounter{tocdepth}{2}
+\usepackage{textcomp,type1ec,pdfpages}
+\usepackage{bera}
+\usepackage{slashed}
+\usepackage{environ}
+\usepackage{esvect}
+\usepackage{xspace}
+\usepackage{bm}
+\usepackage{array}
+
+
+%\usepackage{natbib}
+\usepackage{chapterbib}
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+% \definecolor{gray}{gray}{0.5}
+\definecolor{green}{rgb}{0,0.5,0}
+
+ \lstset{language=c++}
+ \lstset{alsolanguage=[90]Fortran}
+ \lstset{alsolanguage=python}
+% \lstset{basicstyle=\small}
+ \lstset{backgroundcolor=\color{white}}
+ \lstset{frame=single}
+ \lstset{stringstyle=\ttfamily}
+ \lstset{keywordstyle=\color{black}\bfseries}
+ \lstset{commentstyle=\itshape\color{black}}
+ \lstset{showspaces=false}
+ \lstset{showstringspaces=false}
+ \lstset{showtabs=false}
+ \lstset{breaklines}
+ 
+
+% Default settings for code listings
+% \lstnewenvironment{Python}[1]{
+\lstset{%frame=tb,
+  language=c++,
+  alsolanguage=python,
+  %aboveskip=3mm,
+ % belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\footnotesize\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{black},
+  commentstyle=\color{black},
+  stringstyle=\color{black},
+ frame=single,  
+  breaklines=true,
+  %%%% FOR PYTHON 
+  otherkeywords={\ , \}, \{},
+  keywordstyle=\color{black},
+  emph={void, ||, &&, break, class,continue, delete, else,
+  for, if, include, return,try,while},
+  emphstyle=\color{black}\bfseries,
+  emph={[2]True, False, None, self},
+  emphstyle=[2]\color{black},
+  emphstyle=[2]\color{black},
+  emph={[3]from, import, as},
+  emphstyle=[3]\color{black},
+  upquote=true,
+  morecomment=[s]{"""}{"""},
+  commentstyle=\color{black}\slshape, 
+  emph={[4]1, 2, 3, 4, 5, 6, 7, 8, 9, 0},
+  emphstyle=[4]\color{black},
+  breakatwhitespace=true,
+  tabsize=2
+}
+
+\renewcommand{\lstlistlistingname}{Code Listings}
+\renewcommand{\lstlistingname}{Code Listing}
+
+\lstnewenvironment{Python}[1]{
+\lstset{
+language=python,
+basicstyle=\footnotesize\setstretch{1},
+stringstyle=\color{red},
+showstringspaces=false,
+alsoletter={1234567890},
+otherkeywords={\ , \}, \{},
+keywordstyle=\color{black},
+emph={access,and,break,class,continue,def,del,elif ,else,%
+except,exec,finally,for,from,global,if,import,in,is,%
+lambda,not,or,pass,print,raise,return,try,while},
+emphstyle=\color{black}\bfseries,
+emph={[2]True, False, None, self},
+emphstyle=[2]\color{red},
+emph={[3]from, import, as},
+emphstyle=[3]\color{blue},
+upquote=true,
+morecomment=[s]{"""}{"""},
+commentstyle=\color{dkgreen}\slshape, % el color era gray pero lo cambie a verde
+emph={[4]1, 2, 3, 4, 5, 6, 7, 8, 9, 0},
+emphstyle=[4]\color{blue},
+framexleftmargin=1mm, framextopmargin=1mm, rulesepcolor=\color{blue},
+breakatwhitespace=true,
+tabsize=2
+}}{}
+
+
+\lstnewenvironment{C++}[1]{
+\lstset{
+language=c++,
+% basicstyle=\ttfamily\small\setstretch{1},
+basicstyle=\footnotesize\setstretch{1},
+stringstyle=\color{red},
+showstringspaces=false,
+alsoletter={1234567890},
+otherkeywords={\ , \}, \{},
+keywordstyle=\color{black},
+emph={access,and,break,class,continue,def,del,elif ,else,%
+except,exec,finally,for,from,global,if,import,in,is,%
+lambda,not,or,pass,print,raise,return,try,while},
+emphstyle=\color{black}\bfseries,
+emph={[2]True, False, None, self},
+emphstyle=[2]\color{red},
+emph={[3]from, import, as},
+emphstyle=[3]\color{blue},
+upquote=true,
+morecomment=[s]{"""}{"""},
+commentstyle=\color{dkgreen}\slshape, % el color era gray pero lo cambie a verde
+emph={[4]1, 2, 3, 4, 5, 6, 7, 8, 9, 0},
+emphstyle=[4]\color{blue},
+% literate=*{:}{{\textcolor{blue}:}}{1}%
+% {=}{{\textcolor{blue}=}}{1}%
+% {-}{{\textcolor{blue}-}}{1}%
+% {+}{{\textcolor{blue}+}}{1}%
+% {*}{{\textcolor{blue}*}}{1}%
+% {!}{{\textcolor{blue}!}}{1}%
+% {(}{{\textcolor{blue}(}}{1}%
+% {)}{{\textcolor{blue})}}{1}%
+% {[}{{\textcolor{blue}[}}{1}%
+% {]}{{\textcolor{blue}]}}{1}%
+% {<}{{\textcolor{blue}<}}{1}%
+% {>}{{\textcolor{blue}>}}{1},%
+framexleftmargin=1mm, framextopmargin=1mm, rulesepcolor=\color{blue},
+breakatwhitespace=true,
+tabsize=2
+}}{}
+\usepackage{calrsfs}
+\DeclareMathAlphabet{\pazocal}{OMS}{zplm}{m}{n}
+\newcommand {\bea}{\begin{eqnarray}}
+\newcommand {\eea}{\end{eqnarray}}
+\newcommand {\be}{\begin{equation}}
+\newcommand {\ee}{\end{equation}}
+\newcommand{\beq}{\begin{eqnarray}}
+\newcommand{\eeq}{\end{eqnarray}}
+\newcommand {\bc}{\begin{center}}
+\newcommand {\ec}{\end{center}}
+\def\lsim{\mathrel{\rlap{\lower4pt\hbox{\hskip1pt$\sim$}}
+    \raise1pt\hbox{$<$}}}               
+\def\gsim{\mathrel{\rlap{\lower4pt\hbox{\hskip1pt$\sim$}}
+    \raise1pt\hbox{$>$}}}  
+
+
+\makeindex             % used for the subject index
+                       % please use the style svind.ist with
+                       % your makeindex program
+
+
+\begin{document}
+\frontmatter
+
+\begin{titlepage}
+\title{LNP 1000}
+\date{July 2022}
+\author{XXXX}
+\end{titlepage}
+
+%\maketitle
+\tableofcontents
+\mainmatter
+\include{mhj}
+
+\end{document}
