@@ -18,3 +18,18 @@ for optimizing multidimensional functions. Codes and jupyter-notebooks
 are provided, allowing thereby the reader to experiment and practice
 the various methods.
 
+## Algorithms
+ - Linear algebra and eigenvalue problems
+   - Houselholder's transformation
+   - Jacobi/Givens rotations
+   - Iterative methods, Lanczsos' method
+ - Monte Carlo methods
+   - Variational Monte Carlo
+   - Metropolis-Hastings algorithm
+ - Optimization problems
+   - Gradient descent and steepest gradient descent
+   - Adaptive methods
+ - Automatic differentiation
+ - Deep learning
+   - Neural Networks
+   - Reduced Boltzmann machines
