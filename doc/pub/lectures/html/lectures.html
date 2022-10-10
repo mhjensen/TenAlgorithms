@@ -2763,7 +2763,6 @@ $$
 <span style="color: #008000; font-weight: bold">from</span> <span style="color: #0000FF; font-weight: bold">matplotlib</span> <span style="color: #008000; font-weight: bold">import</span> cm
 <span style="color: #008000; font-weight: bold">from</span> <span style="color: #0000FF; font-weight: bold">matplotlib.ticker</span> <span style="color: #008000; font-weight: bold">import</span> LinearLocator, FormatStrFormatter
 <span style="color: #008000; font-weight: bold">import</span> <span style="color: #0000FF; font-weight: bold">sys</span>
-<span style="color: #008000; font-weight: bold">from</span> <span style="color: #0000FF; font-weight: bold">numba</span> <span style="color: #008000; font-weight: bold">import</span> jit,njit
 
 
 <span style="color: #408080; font-style: italic">#Read name of output file from command line</span>
@@ -2802,9 +2801,6 @@ outfile <span style="color: #666666">=</span> <span style="color: #008000">open<
     <span style="color: #008000; font-weight: bold">return</span> qforce
     
 <span style="color: #408080; font-style: italic"># The Monte Carlo sampling with the Metropolis algo</span>
-<span style="color: #408080; font-style: italic"># jit decorator tells Numba to compile this function.</span>
-<span style="color: #408080; font-style: italic"># The argument types will be inferred by Numba when function is called.</span>
-<span style="color: #AA22FF">@jit</span>()
 <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">MonteCarloSampling</span>():
 
     NumberMCcycles<span style="color: #666666">=</span> <span style="color: #666666">100000</span>
@@ -2970,8 +2966,6 @@ Niterations <span style="color: #666666">=</span> <span style="color: #666666">1
 <span style="color: #008000; font-weight: bold">from</span> <span style="color: #0000FF; font-weight: bold">matplotlib</span> <span style="color: #008000; font-weight: bold">import</span> cm
 <span style="color: #008000; font-weight: bold">from</span> <span style="color: #0000FF; font-weight: bold">matplotlib.ticker</span> <span style="color: #008000; font-weight: bold">import</span> LinearLocator, FormatStrFormatter
 <span style="color: #008000; font-weight: bold">import</span> <span style="color: #0000FF; font-weight: bold">sys</span>
-<span style="color: #008000; font-weight: bold">from</span> <span style="color: #0000FF; font-weight: bold">numba</span> <span style="color: #008000; font-weight: bold">import</span> jit
-
 
 <span style="color: #408080; font-style: italic"># Trial wave function for the 2-electron quantum dot in two dims</span>
 <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">WaveFunction</span>(r,alpha):
@@ -3003,9 +2997,6 @@ Niterations <span style="color: #666666">=</span> <span style="color: #666666">1
     <span style="color: #008000; font-weight: bold">return</span> qforce
     
 <span style="color: #408080; font-style: italic"># Computing the derivative of the energy and the energy </span>
-<span style="color: #408080; font-style: italic"># jit decorator tells Numba to compile this function.</span>
-<span style="color: #408080; font-style: italic"># The argument types will be inferred by Numba when function is called.</span>
-<span style="color: #AA22FF">@jit</span>
 <span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">EnergyMinimization</span>(alpha):
 
     NumberMCcycles<span style="color: #666666">=</span> <span style="color: #666666">1000</span>

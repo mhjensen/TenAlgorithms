@@ -2396,7 +2396,6 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import sys
-from numba import jit,njit
 
 
 #Read name of output file from command line
@@ -2435,9 +2434,6 @@ def QuantumForce(r,alpha,beta):
     return qforce
     
 # The Monte Carlo sampling with the Metropolis algo
-# jit decorator tells Numba to compile this function.
-# The argument types will be inferred by Numba when function is called.
-@jit()
 def MonteCarloSampling():
 
     NumberMCcycles= 100000
@@ -2573,8 +2569,6 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import sys
-from numba import jit
-
 
 # Trial wave function for the 2-electron quantum dot in two dims
 def WaveFunction(r,alpha):
@@ -2606,9 +2600,6 @@ def QuantumForce(r,alpha):
     return qforce
     
 # Computing the derivative of the energy and the energy 
-# jit decorator tells Numba to compile this function.
-# The argument types will be inferred by Numba when function is called.
-@jit
 def EnergyMinimization(alpha):
 
     NumberMCcycles= 1000
