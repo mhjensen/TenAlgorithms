@@ -1,19 +1,284 @@
-$\mathbf{A}\mathbf{x}=\lambda\mathbf{x}$ 
-   $\mathbf{A}=\mathbf{A}^*$  Conjugate gradient and  Lanczos
-  $\mathbf{A}\ne \mathbf{A}^*$  GMRES etc           Arnoldi 
+TITLE: Computational Physics  Lectures: Ten algorithms for quantum mechanical systems
+AUTHOR: Morten Hjorth-Jensen {copyright, 1999-present|CC BY-NC} at Department of Physics and Center for Computing in Science Education, University of Oslo, Oslo, Norway & Department of Physics and Astronomy and Facility for Rare Isotope Beams, East Lansing, Michigan State University, USA
+DATE: today
 
 
 
-The Numerical Recipes codes have been rewritten in Fortran 90/95 and C/C++ by us.
-The original source codes are taken from the widely used software
-package LAPACK, which follows two other popular packages developed in the 1970s, 
-namely EISPACK and LINPACK.
- * LINPACK: package for linear equations  and least square problems.
- * LAPACK:package for solving symmetric, unsymmetric and generalized eigenvalue problems. From LAPACK's website URL: "http://www.netlib.org"  it is  possible to download for free all source codes from this library. Both C/C++ and Fortran versions are available.
- * BLAS (I, II and III): (Basic Linear Algebra Subprograms)  are routines that provide standard building blocks for performing basic vector and matrix operations.   Blas I is vector operations, II vector-matrix operations and III matrix-matrix operations. 
+===== Overview   =====
+In this contribution we outline central algorithms for studying
+quantum mechanical systems, with an emphasis on both computational and
+pedagogical aspects. Using simple systems that allow for analytical
+solutions, we show how one can move from linear algebra and eigenvalue
+algorithms using for example full configuration interaction theory, to
+stochastic methods like variational and Diffusion Monte Carlo
+approaches and finally, how we can use Monte Carlo methods together
+with deep learning algorithms. Along this journey we will present ten
+central algorithms which have changed considerably the way we study
+interacting many-particle systems.  These algorithms span from
+Householder’s famous transformation of matrices, via iterative
+eigenvalue solvers to neural networks and automatic differentiation
+for optimizing multidimensional functions. Codes and jupyter-notebooks
+are provided, allowing thereby the reader to experiment and practice
+the various methods.
+
+
+===== Algorithms =====
+ * Linear algebra and eigenvalue problems
+   o Houselholder's transformation
+   o Jacobi/Givens rotations
+   o Iterative methods, Lanczsos' method
+ * Monte Carlo methods
+   o Variational Monte Carlo
+   o Metropolis-Hastings algorithm
+ * Optimization problems
+   o Gradient descent and steepest gradient descent
+   o Adaptive methods
+ * Automatic differentiation
+ * Deep learning
+   o Neural Networks
+   o Reduced Boltzmann machines
 
 
 
+===== Eigenvalue problems, basic definitions =====
+ 
+Let us consider the matrix $\mathbf{A}$ of dimension $n$. The eigenvalues of
+$\mathbf{A}$ are defined through the matrix equation 
+!bt
+\[
+   \mathbf{A}\mathbf{x}^{(\nu)} = \lambda^{(\nu)}\mathbf{x}^{(\nu)},
+\]
+!et
+where $\lambda^{(\nu)}$ are the eigenvalues and $\mathbf{x}^{(\nu)}$ the
+corresponding eigenvectors.
+Unless otherwise stated, when we use the wording eigenvector we mean the
+right eigenvector. The left eigenvalue problem is defined as 
+!bt
+\[
+\mathbf{x}^{(\nu)}_L\mathbf{A} = \lambda^{(\nu)}\mathbf{x}^{(\nu)}_L
+\]
+!et
+The above right eigenvector problem is equivalent to a set of $n$ equations with $n$ unknowns
+$x_i$.
+
+
+
+
+===== Eigenvalue problems, basic definitions =====
+ 
+The eigenvalue problem can be rewritten as 
+!bt
+\[
+   \left( \mathbf{A}-\lambda^{(\nu)} \mathbf{I} \right) \mathbf{x}^{(\nu)} = 0,
+\]
+!et
+with $\mathbf{I}$ being the unity matrix. This equation provides
+a solution to the problem if and only if the determinant
+is zero, namely
+!bt
+\[
+   \left| \mathbf{A}-\lambda^{(\nu)}\mathbf{I}\right| = 0,
+\]
+!et
+which in turn means that the determinant is a polynomial
+of degree $n$ in $\lambda$ and in general we will have 
+$n$ distinct zeros. 
+
+
+The eigenvalues of a matrix 
+$\mathbf{A}\in {\mathbb{C}}^{n\times n}$
+are thus the $n$ roots of its characteristic polynomial 
+!bt
+\[
+P(\lambda) = det(\lambda\mathbf{I}-\mathbf{A}),
+\]
+!et
+or 
+!bt
+\[
+  P(\lambda)= \prod_{i=1}^{n}\left(\lambda_i-\lambda\right).
+\]
+!et
+The set of these roots is called the spectrum and is denoted as
+$\lambda(\mathbf{A})$.
+If $\lambda(\mathbf{A})=\left\{\lambda_1,\lambda_2,\dots ,\lambda_n\right\}$ then we have
+!bt
+\[
+   det(\mathbf{A})= \lambda_1\lambda_2\dots\lambda_n, 
+\]
+!et
+and if we define the trace of $\mathbf{A}$ as
+!bt
+\[
+Tr(\mathbf{A})=\sum_{i=1}^n a_{ii}\]
+!et
+then
+!bt
+\[
+Tr(\mathbf{A})=\lambda_1+\lambda_2+\dots+\lambda_n.
+\]
+!et
+
+
+
+
+===== Abel-Ruffini Impossibility Theorem =====
+ 
+The *Abel-Ruffini* theorem (also known as Abel's impossibility theorem) 
+states that there is no general solution in radicals to polynomial equations of degree five or higher.
+
+The content of this theorem is frequently misunderstood. It does not assert that higher-degree polynomial equations are unsolvable. 
+In fact, if the polynomial has real or complex coefficients, and we allow complex solutions, then every polynomial equation has solutions; this is the fundamental theorem of algebra. Although these solutions cannot always be computed exactly with radicals, they can be computed to any desired degree of accuracy using numerical methods such as the Newton-Raphson method or Laguerre method, and in this way they are no different from solutions to polynomial equations of the second, third, or fourth degrees.
+
+The theorem only concerns the form that such a solution must take. The content of the theorem is 
+that the solution of a higher-degree equation cannot in all cases be expressed in terms of the polynomial coefficients with a finite number of operations of addition, subtraction, multiplication, division and root extraction. Some polynomials of arbitrary degree, of which the simplest nontrivial example is the monomial equation $ax^n = b$, are always solvable with a radical.
+
+
+
+The *Abel-Ruffini* theorem says that there are some fifth-degree equations whose solution cannot be so expressed. 
+The equation $x^5 - x + 1 = 0$ is an example. Some other fifth degree equations can be solved by radicals, 
+for example $x^5 - x^4 - x + 1 = 0$. The precise criterion that distinguishes between those equations that can be solved 
+by radicals and those that cannot was given by Galois and is now part of Galois theory: 
+a polynomial equation can be solved by radicals if and only if its Galois group is a solvable group.
+
+Today, in the modern algebraic context, we say that second, third and fourth degree polynomial 
+equations can always be solved by radicals because the symmetric groups $S_2, S_3$ and $S_4$ are solvable groups, 
+whereas $S_n$ is not solvable for $n \ge 5$.
+
+
+
+
+===== Eigenvalue problems, basic definitions =====
+ 
+In the present discussion we assume that our matrix is real and symmetric, that is 
+$\mathbf{A}\in {\mathbb{R}}^{n\times n}$.
+The matrix $\mathbf{A}$ has $n$ eigenvalues
+$\lambda_1\dots \lambda_n$ (distinct or not). Let $\mathbf{D}$ be the
+diagonal matrix with the eigenvalues on the diagonal
+!bt
+\[
+\mathbf{D}=    \left( \begin{array}{ccccccc} \lambda_1 & 0 & 0   & 0    & \dots  &0     & 0 \\
+                                0 & \lambda_2 & 0 & 0    & \dots  &0     &0 \\
+                                0   & 0 & \lambda_3 & 0  &0       &\dots & 0\\
+                                \dots  & \dots & \dots & \dots  &\dots      &\dots & \dots\\
+                                0   & \dots & \dots & \dots  &\dots       &\lambda_{n-1} & \\
+                                0   & \dots & \dots & \dots  &\dots       &0 & \lambda_n
+
+             \end{array} \right).
+\]
+!et
+If $\mathbf{A}$ is real and symmetric then there exists a real orthogonal matrix $\mathbf{S}$ such that
+!bt
+\[
+     \mathbf{S}^T \mathbf{A}\mathbf{S}= \mathrm{diag}(\lambda_1,\lambda_2,\dots ,\lambda_n),
+\]
+!et
+and for $j=1:n$ we have $\mathbf{A}\mathbf{S}(:,j) = \lambda_j \mathbf{S}(:,j)$.
+
+
+ 
+To obtain the eigenvalues of $\mathbf{A}\in {\mathbb{R}}^{n\times n}$,
+the strategy is to
+perform a series of similarity transformations on the original
+matrix $\mathbf{A}$, in order to reduce it either into a  diagonal form as above
+or into a  tridiagonal form. 
+
+We say that a matrix $\mathbf{B}$ is a similarity
+transform  of  $\mathbf{A}$ if 
+!bt
+\[
+     \mathbf{B}= \mathbf{S}^T \mathbf{A}\mathbf{S}, \hspace{1cm} \mathrm{where} \hspace{1cm}  \mathbf{S}^T\mathbf{S}=\mathbf{S}^{-1}\mathbf{S} =\mathbf{I}.
+\]
+!et
+The importance of a similarity transformation lies in the fact that
+the resulting matrix has the same
+eigenvalues, but the eigenvectors are in general different. 
+
+
+
+ 
+To prove this we
+start with  the eigenvalue problem and a similarity transformed matrix $\mathbf{B}$.
+!bt
+\[
+   \mathbf{A}\mathbf{x}=\lambda\mathbf{x} \hspace{1cm} \mathrm{and}\hspace{1cm} 
+    \mathbf{B}= \mathbf{S}^T \mathbf{A}\mathbf{S}.
+\]
+!et
+We multiply the first equation on the left by $\mathbf{S}^T$ and insert
+$\mathbf{S}^{T}\mathbf{S} = \mathbf{I}$ between $\mathbf{A}$ and $\mathbf{x}$. Then we get
+!bt
+\begin{equation}
+   (\mathbf{S}^T\mathbf{A}\mathbf{S})(\mathbf{S}^T\mathbf{x})=\lambda\mathbf{S}^T\mathbf{x} ,
+\end{equation}  
+!et
+which is the same as 
+!bt
+\[
+   \mathbf{B} \left ( \mathbf{S}^T\mathbf{x} \right ) = \lambda \left (\mathbf{S}^T\mathbf{x}\right ).
+\]
+!et
+The variable  $\lambda$ is an eigenvalue of $\mathbf{B}$ as well, but with
+eigenvector $\mathbf{S}^T\mathbf{x}$.
+
+
+
+  
+The basic philosophy is to
+ * Either apply subsequent similarity transformations (direct method) so that 
+!bt
+\begin{equation}
+   \mathbf{S}_N^T\dots \mathbf{S}_1^T\mathbf{A}\mathbf{S}_1\dots \mathbf{S}_N=\mathbf{D} ,
+\end{equation}
+!et
+ * Or apply subsequent similarity transformations so that $\mathbf{A}$ becomes tridiagonal (Householder) or upper/lower triangular (the *QR* method to be discussed later). 
+ * Thereafter, techniques for obtaining eigenvalues from tridiagonal matrices can be used.
+ * Or use so-called power methods
+ * Or use iterative methods (Krylov, Lanczos, Arnoldi). These methods are popular for huge matrix problems.
+
+
+
+
+One speaks normally of two main approaches to solving the eigenvalue problem.
+ * The first is the formal method, involving determinants and the  characteristic polynomial. This proves how many eigenvalues  there are, and is the way most of you learned about how to solve the eigenvalue problem, but for matrices of dimensions greater than 2 or 3, it is rather impractical.
+
+ * The other general approach is to use similarity or unitary tranformations  to reduce a matrix to diagonal form. This is normally done in two steps: first reduce to for example a *tridiagonal* form, and then to diagonal form. The main algorithms we will discuss in detail, Jacobi's and  Householder's  (so-called direct method) and Lanczos algorithms (an iterative method), follow this methodology. 
+
+
+
+Direct or non-iterative methods  require for matrices of dimensionality $n\times n$ typically $O(n^3)$ operations. These methods are normally called standard methods and are used for dimensionalities
+$n \sim 10^5$ or smaller. A brief historical overview  
+
+|----------------------------------------|
+| Year  | $n$          |                 |
+|----------------------------------------|
+|  1950 | $n=20$       |(Wilkinson)      |
+|  1965 | $n=200$      |(Forsythe et al.)|
+|  1980 | $n=2000$     |Linpack          |
+|  1995 | $n=20000$    |Lapack           |
+|  2017 | $n\sim 10^5$ |Lapack           |
+|----------------------------------------|
+
+shows that in the course of 60 years the dimension that  direct diagonalization methods can handle  has increased by almost a factor of
+$10^4$. However, it pales beside the progress achieved by computer hardware, from flops to petaflops, a factor of almost $10^{15}$. We see clearly played out in history the $O(n^3)$ bottleneck  of direct matrix algorithms.
+
+Sloppily speaking, when  $n\sim 10^4$ is cubed we have $O(10^{12})$ operations, which is smaller than the $10^{15}$ increase in flops.  
+
+
+
+ 
+If the matrix to diagonalize is large and sparse, direct methods simply become impractical, 
+also because
+many of the direct methods tend to destroy sparsity. As a result large dense matrices may arise during the diagonalization procedure.  The idea behind iterative methods is to project the 
+$n-$dimensional problem in smaller spaces, so-called Krylov subspaces. 
+Given a matrix $\mathbf{A}$ and a vector $\mathbf{v}$, the associated Krylov sequences of vectors
+(and thereby subspaces) 
+$\mathbf{v}$, $\mathbf{A}\mathbf{v}$, $\mathbf{A}^2\mathbf{v}$, $\mathbf{A}^3\mathbf{v},\dots$, represent
+successively larger Krylov subspaces. 
+
+
+===== Discussion of Jacobi's method for eigenvalues =====
+ 
 Consider an  example of an ($n\times n$) orthogonal transformation matrix 
 !bt
 \[
@@ -35,8 +300,7 @@ with property $\mathbf{S^{T}} = \mathbf{S^{-1}}$.
 It performs a plane rotation around an angle $\theta$ in the Euclidean 
 $n-$dimensional space. 
 
-
-
+ 
 It means that its matrix elements that differ
 from zero are given by
 !bt
@@ -66,6 +330,7 @@ The angle $\theta$ is  arbitrary. The recipe is to choose  $\theta$ so that all
 non-diagonal matrix elements $b_{kl}$ become zero.  
 
 
+
 The main idea is thus to reduce systematically the 
 norm of the 
 off-diagonal matrix elements  of a matrix  $\mathbf{A}$ 
@@ -86,6 +351,7 @@ use the abbreviations $c=\cos\theta$ and $s=\sin\theta$ to obtain
                           -s & c \\\end{array} \right).
 \]
 !et
+
 
 
  
@@ -160,7 +426,6 @@ of minimizing the difference between the matrices $\mathbf{B}$ and $\mathbf{A}$ 
 !et
 
 
-
  
  * Choose a tolerance $\epsilon$, making it a small number, typically $10^{-8}$ or smaller.
  * Setup a *while* test  where one compares the norm of the newly computed off-diagonal matrix elements  \[ \mathrm{off}(\mathbf{A}) = \sqrt{\sum_{i=1}^n\sum_{j=1,j\ne i}^n a_{ij}^2}   >  \epsilon. \]
@@ -171,9 +436,11 @@ of minimizing the difference between the matrices $\mathbf{B}$ and $\mathbf{A}$ 
 
 
 
- 
 The convergence rate of the Jacobi method is however poor, one needs typically $3n^2-5n^2$ rotations and each rotation 
 requires $4n$ operations, resulting in a total of $12n^3-20n^3$ operations in order to zero out non-diagonal matrix elements.
+
+
+
 
  
 We specialize to a symmetric $3\times 3 $ matrix $\mathbf{A}$.
@@ -212,7 +479,6 @@ We get (symmetric matrix)
 Note that $a_{11}$ is unchanged! As it should.
 
 
- 
 We have
 !bt
 \[
@@ -235,7 +501,6 @@ b_{23} =& (a_{22}-a_{33})\cos\theta \sin\theta +a_{23}(\cos^2\theta-\sin^2\theta
 \end{align*}
 !et
 We will fix the angle $\theta$ so that $b_{23}=0$.
-
 
  
 We get then a new matrix
@@ -274,7 +539,6 @@ You will notice that performing the above operations that the matrix element
 $b_{23}$ which was previous zero becomes different from zero.  This is one of the problems which slows
 down the jacobi procedure.
 
-
  
 The more general expression for the new matrix elements are
 !bt
@@ -290,128 +554,10 @@ b_{kl} =& (a_{kk}-a_{ll})\cos\theta \sin\theta +a_{kl}(\cos^2\theta-\sin^2\theta
 This is what we will need to code.
 
 
- Code example
-!bc cppcod
-//  we have defined a matrix A and a matrix R for the eigenvector, both of dim n x n
-//  The final matrix R has the eigenvectors in its row elements, it is set to one
-//  for the diagonal elements in the beginning, zero else.
-....
-double tolerance = 1.0E-10; 
-int iterations = 0;
-while ( maxnondiag > tolerance && iterations <= maxiter)
-{
-   int p, q;
-   offdiag(A, &p, &q, n);
-   Jacobi_rotate(A, R, p, q, n);
-   iterations++;
-}
-...
-!ec
-
- 
-Finding the max nondiagonal element
-!bc cppcod
-//  the offdiag function, using Armadillo
-void offdiag(mat A, int *p, int *q, int n);
-{
-   double max;
-   for (int i = 0; i < n; ++i)
-   {
-       for ( int j = i+1; j < n; ++j)
-       {
-           double aij = fabs(A(i,j));
-           if ( aij > max)
-           { 
-              max = aij;  p = i; q = j;
-           }
-       }
-   }
-}
-// more statements
-!ec
 
 
-Finding the new matrix elements
-!bc cppcod
-void Jacobi_rotate ( mat A, mat R, int k, int l, int n )
-{
-  double s, c;
-  if ( A(k,l) != 0.0 ) {
-    double t, tau;
-    tau = (A(l,l) - A(k,k))/(2*A(k,l));
-    
-    if ( tau >= 0 ) {
-      t = 1.0/(tau + sqrt(1.0 + tau*tau));
-    } else {
-      t = -1.0/(-tau +sqrt(1.0 + tau*tau));
-    }
-    
-    c = 1/sqrt(1+t*t);
-    s = c*t;
-  } else {
-    c = 1.0;
-    s = 0.0;
-  }
-  double a_kk, a_ll, a_ik, a_il, r_ik, r_il;
-  a_kk = A(k,k);
-  a_ll = A(l,l);
-  A(k,k) = c*c*a_kk - 2.0*c*s*A(k,l) + s*s*a_ll;
-  A(l,l) = s*s*a_kk + 2.0*c*s*A(k,l) + c*c*a_ll;
-  A(k,l) = 0.0;  // hard-coding non-diagonal elements by hand
-  A(l,k) = 0.0;  // same here
-  for ( int i = 0; i < n; i++ ) {
-    if ( i != k && i != l ) {
-      a_ik = A(i,k);
-      a_il = A(i,l);
-      A(i,k) = c*a_ik - s*a_il;
-      A(k,i) = A(i,k);
-      A(i,l) = c*a_il + s*a_ik;
-      A(l,i) = A(i,l);
-    }
-//  And finally the new eigenvectors
-    r_ik = R(i,k);
-    r_il = R(i,l);
 
-    R(i,k) = c*r_ik - s*r_il;
-    R(i,l) = c*r_il + s*r_ik;
-  }
-  return;
-} // end of function jacobi_rotate
-!ec
-
-
-===== Harmonic oscillator problem with and without interactions =====
- 
-In project 1 we rewrote our original differential equation in terms of a discretized equation with approximations to the 
-derivatives as
-!bt
-\[
-    -\frac{u_{i+1} -2u_i +u_{i-i}}{h^2}=f(x_i,u(x_i)),
-\]
-!et
-with $i=1,2,\dots, n$. We need to add to this system the two boundary conditions $u(a) =u_0$ and $u(b) = u_{n+1}$.
-If we define a matrix
-!bt 
-\[
-    \mathbf{A} = \frac{1}{h^2}\left(\begin{array}{cccccc}
-                          2 & -1 &  &   &  & \\
-                          -1 & 2 & -1 & & & \\
-                           & -1 & 2 & -1 & &  \\
-                           & \dots   & \dots &\dots   &\dots & \dots \\
-                           &   &  &-1  &2& -1 \\
-                           &    &  &   &-1 & 2 \\
-                      \end{array} \right)
-\]
-!et
-and the corresponding vectors $\mathbf{u} = (u_1, u_2, \dots,u_n)^T$ and 
-$\mathbf{f}(\mathbf{u}) = f(x_1,x_2,\dots, x_n,u_1, u_2, \dots,u_n)^T$  we can rewrite the differential equation
-including the boundary conditions as a system of linear equations with  a large number of unknowns 
-!bt
-\[
-   \mathbf{A}\mathbf{u} = \mathbf{f}(\mathbf{u}).
- \]
-!et
-
+===== Our system  =====
  
 We are first interested in the solution of the radial part of Schroedinger's equation for one electron. This equation reads
 !bt
@@ -432,6 +578,8 @@ E_{nl}=  \hbar \omega \left(2n+l+\frac{3}{2}\right),
 !et
 with $n=0,1,2,\dots$ and $l=0,1,2,\dots$.
 
+
+
  
 Since we have made a transformation to spherical coordinates it means that 
 $r\in [0,\infty)$.  
@@ -445,6 +593,8 @@ $l$ is the orbital momentum of the electron.   Then we substitute $R(r) = (1/r) 
 \]
 !et
 The boundary conditions are $u(0)=0$ and $u(\infty)=0$.
+
+
 
 
  
@@ -511,6 +661,7 @@ the eigenvalues for $l=0$ are
 $\lambda_0=3,\lambda_1=7,\lambda_2=11,\dots .$
 
 
+
  
 We use the by now standard
 expression for the second derivative of a function $u$
@@ -526,7 +677,6 @@ $\rho_{\mathrm{min}}=0$  and $\rho_{\mathrm{max}}$, respectively.
 You need to check your results for the energies against different values
 $\rho_{\mathrm{max}}$, since we cannot set
 $\rho_{\mathrm{max}}=\infty$. 
-
 
  
 With a given number of steps, $n_{\mathrm{step}}$, we then 
@@ -555,6 +705,7 @@ or in  a more compact way
 \]
 !et
 where $V_i=\rho_i^2$ is the harmonic oscillator potential.
+
 
  
 Define first the diagonal matrix element
@@ -618,6 +769,10 @@ Recall that the solutions are known via the boundary conditions at
 $i=n_{\mathrm{step}}$ and at the other end point, that is for  $\rho_0$.
 The solution is zero in both cases.
 
+
+
+
+===== Two electrons that interact  =====
  
 We are going to study two electrons in a harmonic oscillator well which
 also interact via a repulsive Coulomb interaction.
@@ -636,7 +791,7 @@ Schroedinger equation
 \left(  -\frac{\hbar^2}{2 m} \frac{d^2}{dr_1^2} -\frac{\hbar^2}{2 m} \frac{d^2}{dr_2^2}+ \frac{1}{2}k r_1^2+ \frac{1}{2}k r_2^2\right)u(r_1,r_2)  = E^{(2)} u(r_1,r_2) .
 \]
 !et
-
+ 
 Note that we deal with a two-electron wave function $u(r_1,r_2)$ and 
 two-electron energy $E^{(2)}$.
 
@@ -652,7 +807,7 @@ With these new coordinates, the radial Schroedinger equation reads
 \]
 !et
 
- 
+
 The equations for $r$ and $R$ can be separated via the ansatz for the 
 wave function $u(r,R) = \psi(r)\phi(R)$ and the energy is given by the sum
 of the relative energy $E_r$ and the center-of-mass energy $E_R$, that
@@ -670,6 +825,7 @@ V(r_1,r_2) = \frac{\beta e^2}{|\mathbf{r}_1-\mathbf{r}_2|}=\frac{\beta e^2}{r},
 \]
 !et
 with $\beta e^2=1.44$ eVnm.
+
 
  
 Adding this term, the $r$-dependent Schroedinger equation becomes
@@ -690,7 +846,6 @@ steps, we arrive at
 \]
 !et
 
- 
 We want to manipulate this equation further to make it as similar to that in (a)
 as possible. We define a 'frequency' 
 !bt
@@ -710,6 +865,8 @@ or
 \alpha = \frac{\hbar^2}{m\beta e^2}.
 \]
 !et
+
+
  
 Defining 
 !bt
@@ -725,12 +882,15 @@ we can rewrite Schroedinger's equation as
 !et
 
 
+
  
 We treat $\omega_r$ as a parameter which reflects the strength of the oscillator potential.
 
 Here we will study the cases $\omega_r = 0.01$, $\omega_r = 0.5$, $\omega_r =1$,
 and $\omega_r = 5$   
 for the ground state only, that is the lowest-lying state.
+
+
 
  
 With no repulsive Coulomb interaction 
@@ -745,270 +905,6 @@ center-of-mass energy.
 For specific oscillator frequencies, the above equation has analytic answers,
 see the article by M.~Taut, Phys. Rev. A 48, 3561 - 3566 (1993).
 The article can be retrieved from the following web address URL: "http://prola.aps.org/abstract/PRA/v48/i5/p3561_1".
-
-
-
-
-===== Simple program for one particle in a harmonic oscillator trap =====
- 
-The following program uses the eigenvalue solver provided by Armadillo and returns the eigenvalues for the lowest states. You can run this code interactively if you use ipython notebook.
-!bc pycod 
-%install_ext https://raw.github.com/dragly/cppmagic/master/cppmagic.py
-%load_ext cppmagic
-!ec
-!bc pycod
-%%cpp -I/usr/local/include -L/usr/local/lib -llapack -lblas -larmadillo
-/*
-  Solves the one-particle Schrodinger equation
-  for a potential specified in function
-  potential(). This example is for the harmonic oscillator in 3d
-*/
-#include <cmath>
-#include <iostream>
-#include <fstream>
-#include <iomanip>
-#include <armadillo>
-
-using namespace  std;
-using namespace  arma;
-
-double potential(double);
-void output(double, double, int, vec& );
-
-
-// Begin of main program   
-
-int main(int argc, char* argv[])
-{
-  int       i, j, Dim, lOrbital;
-  double    RMin, RMax, Step, DiagConst, NondiagConst, OrbitalFactor; 
-  // With spherical coordinates RMin = 0 always
-  RMin = 0.0;
-
-  RMax = 8.0;  lOrbital = 0;  Dim =2000;  
-  mat Hamiltonian = zeros<mat>(Dim,Dim);
-  // Integration step length
-  Step    = RMax/ Dim;
-  DiagConst = 2.0 / (Step*Step);
-  NondiagConst =  -1.0 / (Step*Step);
-  OrbitalFactor = lOrbital * (lOrbital + 1.0);
-  
-  // local memory for r and the potential w[r] 
-  vec r(Dim); vec w(Dim);
-  for(i = 0; i < Dim; i++) {
-    r(i) = RMin + (i+1) * Step;
-    w(i) = potential(r(i)) + OrbitalFactor/(r(i) * r(i));
-  }
-
-
-  // Setting up tridiagonal matrix and brute diagonalization using Armadillo
-  Hamiltonian(0,0) = DiagConst + w(0);
-  Hamiltonian(0,1) = NondiagConst;
-  for(i = 1; i < Dim-1; i++) {
-    Hamiltonian(i,i-1)    = NondiagConst;
-    Hamiltonian(i,i)    = DiagConst + w(i);
-    Hamiltonian(i,i+1)    = NondiagConst;
-  }
-  Hamiltonian(Dim-1,Dim-2) = NondiagConst;
-  Hamiltonian(Dim-1,Dim-1) = DiagConst + w(Dim-1);
-  // diagonalize and obtain eigenvalues
-  vec Eigval(Dim);
-  eig_sym(Eigval, Hamiltonian);
-  output(RMin , RMax, Dim, Eigval);
-
-  return 0;
-}  //  end of main function
-
-
-/*
-  The function potential()
-  calculates and return the value of the 
-  potential for a given argument x.
-  The potential here is for the hydrogen atom
-*/        
-
-double potential(double x)
-{
-  return x*x;
-
-} // End: function potential()  
-
-
-void output(double RMin , double RMax, int Dim, vec& d)
-{
-  int i;
-  cout << "RESULTS:" << endl;
-  cout << setiosflags(ios::showpoint | ios::uppercase);
-  cout <<"Rmin = " << setw(15) << setprecision(8) << RMin << endl;  
-  cout <<"Rmax = " << setw(15) << setprecision(8) << RMax << endl;  
-  cout <<"Number of steps = " << setw(15) << Dim << endl;  
-  cout << "Five lowest eigenvalues:" << endl;
-  for(i = 0; i < 5; i++) {
-    cout << setw(15) << setprecision(8) << d[i] << endl;
-  }
-}  // end of function output         
-!ec
-
-
-
-
-
-===== Unit Testing =====
-
-Unit Testing is the practice of testing the smallest testable parts,
-called units, of an application individually and independently to
-determine if they behave exactly as expected. 
-
-Unit tests (short code
-fragments) are usually written such that they can be preformed at any
-time during the development to continually verify the behavior of the
-code. 
-
-In this way, possible bugs will be identified early in the
-development cycle, making the debugging at later stages much
-easier. 
-
-
-There are many benefits associated with Unit Testing, such as
-  * It increases confidence in changing and maintaining code. Big changes can be made to the code quickly, since the tests will ensure that everything still is working properly.
-  * Since the code needs to be modular to make Unit Testing possible, the code will be easier to reuse. This improves the code design.
-  * Debugging is easier, since when a test fails, only the latest changes need to be debugged.
-  *  Different parts of a project can be tested without the need to wait for the other parts to be available.
-  * A unit test can serve as a documentation on the functionality of a unit of the code.
-
-
-
-
-===== Simple example of unit test =====
-
-!bc cppcod
-#include <unittest++/UnitTest++.h>
-
-class MyMultiplyClass{
-public:
-    double multiply(double x, double y) {
-        return x * y;
-    }
-};
-
-TEST(MyMath) {
-    MyMultiplyClass my;
-    CHECK_EQUAL(56, my.multiply(7,8));
-}
-
-int main()
-{
-    return UnitTest::RunAllTests();
-}
-!ec
-
-
-And without classes
-!bc cppcod
-#include <unittest++/UnitTest++.h>
-
-
-double multiply(double x, double y) {
-    return x * y;
-}
-
-TEST(MyMath) {
-    CHECK_EQUAL(56, multiply(7,8));
-}
-
-int main()
-{
-    return UnitTest::RunAllTests();
-} 
-!ec
-For Fortran users, the link at URL: "http://sourceforge.net/projects/fortranxunit/" contains a similar
-software for unit testing. 
-
-
-
-There are many types of _unit test_ libraries. One which is very popular with C++ programmers is "Catch":"https://github.com/philsquared/Catch/blob/master/docs/tutorial.md"
-
-Catch is header only. All you need to do is drop the file(s) somewhere reachable from your project - either in some central location you can set your header search path to find, or directly into your project tree itself! 
-
-This is a particularly good option for other Open-Source projects that want to use Catch for their test suite.
-
-
-
-===== Examples ===== 
-
-Computing factorials
-!bc cppcod
-inline unsigned int Factorial( unsigned int number ) {
-  return number > 1 ? Factorial(number-1)*number : 1;
-}
-!ec
-
-
-===== Factorial Example ===== 
-
-Simple test where we put everything in a single file 
-
-!bc cppcod
-#define CATCH_CONFIG_MAIN  // This tells Catch to provide a main()
-#include "catch.hpp"
-inline unsigned int Factorial( unsigned int number ) {
-  return number > 1 ? Factorial(number-1)*number : 1;
-}
-
-TEST_CASE( "Factorials are computed", "[factorial]" ) {
-    REQUIRE( Factorial(0) == 1 );
-    REQUIRE( Factorial(1) == 1 );
-    REQUIRE( Factorial(2) == 2 );
-    REQUIRE( Factorial(3) == 6 );
-    REQUIRE( Factorial(10) == 3628800 );
-}
-
-!ec
-This will compile to a complete executable which responds to command line arguments. If you just run it with no arguments it will execute all test cases (in this case there is just one), report any failures, report a summary of how many tests passed and failed and return the number of failed tests.
-
-All we did was 
-!bc cppcod
-#define 
-!ec
-one identifier and 
-!bc cppcod
-#include 
-!ec
-one header and we got everything - even an implementation of main() that will respond to command line arguments. 
-Once you have more than one file with unit tests in you'll just need to 
-!bc cppcod
-#include "catch.hpp" 
-!ec
-and go. Usually it's a good idea to have a dedicated implementation file that just has 
-!bc cppcod
-#define CATCH_CONFIG_MAIN 
-#include "catch.hpp". 
-!ec
-You can also provide your own implementation of main and drive Catch yourself.
-
-
-We introduce test cases with the 
-!bc cppcod
-TEST_CASE 
-!ec 
-macro.
-
-The test name must be unique. You can run sets of tests by specifying a wildcarded test name or a tag expression. 
-All we did was _define_ one identifier and _include_ one header and we got everything.
-
-We write our individual test assertions using the 
-!bc cppcod
-REQUIRE 
-!ec
-macro.
-
-
-Three levels of tests
-o Microscopic level: testing small parts of code, use often unit test libraries
-o Mesoscopic level: testing the integration of various parts  of your code
-o Macroscopic level: testing that the final result is ok
- 
-
 
 
 
@@ -1029,7 +925,6 @@ required tridiagonal form. Only $n-2$ transformations are required, since the la
 elements are already in tridiagonal form. 
 
 
- 
 In order to determine each $\mathbf{S}_i$ let us
 see what happens after the first multiplication, namely,
 !bt
@@ -1045,6 +940,7 @@ see what happens after the first multiplication, namely,
 !et
 where the primed quantities represent a matrix $\mathbf{A}'$ of dimension
 $n-1$ which will subsequentely be transformed by $\mathbf{S}_2$.
+
 
  
 The factor  $e_1$ is a possibly non-vanishing element. The next
@@ -1063,7 +959,6 @@ transformation produced by $\mathbf{S}_2$ has the same effect as  $\mathbf{S}s$ 
 !et
 *Note that the effective size of the matrix on which we apply the transformation reduces for every new step. In the previous Jacobi method each similarity transformation is in principle performed on the full size of the original matrix*.
 
-
  
 After a series of such transformations, we end with a set of diagonal
 matrix elements
@@ -1078,6 +973,7 @@ and off-diagonal matrix elements
    e_1, e_2,e_3,  \dots, e_{n-1}.
 \]
 !et
+
 
  
 The resulting matrix reads
@@ -1094,6 +990,7 @@ The resulting matrix reads
              \end{array} \right) .
 \]
 !et
+
 
  
 It remains to find a recipe for determining the transformation $\mathbf{S}_n$.
@@ -1116,6 +1013,8 @@ A possible choice which fullfils the latter two requirements is
 !et
 where $\mathbf{I}$ is the $(n-1)$ unity matrix and $\mathbf{u}$ is an $n-1$
 column vector with norm $\mathbf{u}^T\mathbf{u}$ (inner product).
+
+
 
  
  Note that $\mathbf{u}\mathbf{u}^T$ is an outer product giving a
@@ -1143,7 +1042,6 @@ must satisfy ($\mathbf{Pv})^{T} = \{k, 0, 0,\cdots \}$. Then
 \end{equation}
 !et
 with $\mathbf{e^{T}} = \{1,0,0,\dots 0\}$.
-
 
 
  
@@ -1188,7 +1086,6 @@ The above steps are then repeated for every transformations till we have a
 tridiagonal matrix suitable for obtaining the eigenvalues.  
 
 
-
  
 Our Householder transformation has given us a tridiagonal matrix. We discuss here how one can use
 Householder's iterative procedure to obtain the eigenvalues. 
@@ -1209,6 +1106,7 @@ As a first observation, if any of the elements $e_{i}$ are zero the
 matrix can be separated into smaller pieces before
 diagonalization. Specifically, if $e_{1} = 0$ then $d_{1}$ is an
 eigenvalue.
+
 
  
  Thus, let us introduce  a transformation $\mathbf{S_{1}}$ which operates like
@@ -1244,6 +1142,8 @@ give the element $a_{21}^{'} = e^{'}= 0$ then we have the first
 eigenvalue  $= a_{11}^{'} = d_{1}^{'}$.
 (This is actually what you are doing in project 2!!)
 
+
+
  
 This procedure can be continued on the remaining three-dimensional
 submatrix for the next eigenvalue. Thus after few transformations    
@@ -1262,181 +1162,10 @@ planar rotations. For a tridiagonal matrix it is simple to carry out in principl
 
 
 
-===== Eigenvalues with the *QR* and Lanczos methods =====
-
-Our Householder transformation has given us a tridiagonal matrix. We discuss here how one can use
-Jacobi's iterative procedure to obtain the eigenvalues, although it may not be the best approach. 
-Let us specialize to a $4\times 4 $ matrix.
-The tridiagonal matrix takes the form
-!bt
-\[
- \mathbf{A} =
-      \left( \begin{array}{cccc} 
-                d_{1} & e_{1} & 0     &  0    \\
-                e_{1} & d_{2} & e_{2} &  0    \\
-                 0    & e_{2} & d_{3} & e_{3} \\
-                 0    &   0   & e_{3} & d_{4} 
-             \end{array} \right).
-\]
-!et
-As a first observation, if any of the elements $e_{i}$ are zero the
-matrix can be separated into smaller pieces before
-diagonalization. Specifically, if $e_{1} = 0$ then $d_{1}$ is an
-eigenvalue.
+===== Eigenvalues  =====
 
 
-Thus, let us introduce  a transformation $\mathbf{S_{1}}$ which operates like
-!bt
-\[
- \mathbf{S_{1}} =
-      \left( \begin{array}{cccc} 
-                \cos \theta & 0 & 0 & \sin \theta\\
-                 0       & 0 & 0 &      0      \\
-                   0        & 0 & 0 &      0      \\
-               \cos \theta & 0 & 0 & \cos \theta 
-             \end{array} \right)
-\]
-!et
-Then the similarity transformation 
-!bt
-\[
-\mathbf{S_{1}^{T} A  S_{1}} = \mathbf{A'} = 
-      \left( \begin{array}{cccc}
-              d'_{1} & e'_{1} &   0    &   0   \\
-              e'_{1}  & d_{2}  & e_{2}  &   0   \\
-                0    & e_{2}  & d_{3}  & e'{3} \\
-                0    &   0    & e'_{3} & d'_{4}
-             \end{array} \right)
-\]
-!et
-produces a matrix where the primed elements in $\mathbf{A'}$ have been
-changed by the transformation whereas the unprimed elements are unchanged.
-
-
-If we now choose $\theta$ to
-give the element $a_{21}^{'} = e^{'}= 0$ then we have the first
-eigenvalue  $= a_{11}^{'} = d_{1}^{'}$.
-
-This procedure can be continued on the remaining three-dimensional
-submatrix for the next eigenvalue. Thus after few transformations    
-we have the wanted diagonal form.
-
-What we see here is just a special case of the more general procedure 
-developed by Francis in two articles in 1961 and 1962. Using Jacobi's method is not very efficient ether. 
-
-The algorithm is based on the so-called _QR_ method (or just _QR_-algorithm). It follows from a theorem by Schur which states that any square matrix can be written out in terms of an orthogonal matrix $\hat{Q}$ and an upper triangular matrix $\hat{U}$. Historically $R$ was used instead of 
-$U$ since the wording right triangular matrix was first used.
-
-
-The method is based on an iterative procedure similar to Jacobi's method, by a succession of
-planar rotations. For a tridiagonal matrix it is simple to carry out in principle, but complicated in detail!
-
-Schur's theorem
-!bt
-\[
-\hat{A} = \hat{Q}\hat{U},
-\]
-!et
-is used to rewrite any square matrix into a unitary matrix times an upper triangular matrix.
-We say that a square matrix is similar to a triangular matrix. 
-
-Householder's algorithm which we have derived is just a special case of the general Householder algorithm. For a symmetric square matrix we obtain a tridiagonal matrix. 
-
-There is a corollary to Schur's theorem which states that every Hermitian matrix is unitarily similar to a diagonal matrix.
-
-It follows that we can define a new matrix
-!bt
-\[
-\hat{A}\hat{Q} = \hat{Q}\hat{U}\hat{Q},
-\]
-!et
-and multiply from the left with $\hat{Q}^{-1}$ we get
-!bt
-\[
-\hat{Q}^{-1}\hat{A}\hat{Q} = \hat{B}=\hat{U}\hat{Q},
-\]
-!et
-where the matrix $\hat{B}$ is a similarity transformation of $\hat{A}$ and has the same eigenvalues
-as $\hat{B}$. 
-
-
-Suppose $\hat{A}$ is the triangular matrix we obtained after the Householder  transformation,
-!bt
-\[
-\hat{A} = \hat{Q}\hat{U},
-\]
-!et
-and multiply from the left with $\hat{Q}^{-1}$ resulting in
-!bt
-\[
-\hat{Q}^{-1}\hat{A} = \hat{U}.
-\]
-!et
-Suppose that $\hat{Q}$ consists of a series of planar Jacobi like rotations acting on sub blocks
-of $\hat{A}$ so that all elements below the diagonal are zeroed out
-!bt
-\[
-\hat{Q}=\hat{R}_{12}\hat{R}_{23}\dots\hat{R}_{n-1,n}.
-\]
-!et
-
-
-A transformation of the type $\hat{R}_{12}$ looks like
-!bt
-\[
- \hat{R}_{12} =
-      \left( \begin{array}{ccccccccc} 
-                 c&s &0 &0 &0 &  \dots &0 & 0 & 0\\
-                 -s&c &0 &0 &0 &   \dots &0 & 0 & 0\\
-                 0&0 &1 &0 &0 &   \dots &0 & 0 & 0\\
-                 \dots&\dots &\dots &\dots &\dots &\dots      \\
-                 0&0 &0 & 0 & 0 & \dots &1 &0 &0      \\
-                 0&0 &0 & 0 & 0 & \dots &0 &1 &0      \\
-                 0&0 &0 & 0 & 0 & \dots &0 &0 & 1  
-             \end{array} \right)
-\]
-!et
-
-
-The matrix $\hat{U}$ takes then the form
-!bt
-\[
- \hat{U} =
-      \left( \begin{array}{ccccccccc} 
-                 x&x &x &0 &0 &  \dots &0 & 0 & 0\\
-                 0&x &x &x &0 &   \dots &0 & 0 & 0\\
-                 0&0 &x &x &x &   \dots &0 & 0 & 0\\
-                 \dots&\dots &\dots &\dots &\dots &\dots      \\
-                 0&0 &0 & 0 & 0 & \dots &x &x &x      \\
-                 0&0 &0 & 0 & 0 & \dots &0 &x &x      \\
-                 0&0 &0 & 0 & 0 & \dots &0 &0 & x  
-             \end{array} \right)
-\]
-!et
-which has a second superdiagonal.
-
-
-
-We have now found $\hat{Q}$ and $\hat{U}$ and this allows us to find the matrix $\hat{B}$
-which is, due to Schur's theorem,  unitarily similar to a triangular matrix (upper in our case) 
-since we have that 
-!bt
-\[
-\hat{Q}^{-1}\hat{A}\hat{Q} = \hat{B}, 
-\]
-!et
-from Schur's theorem the  matrix $\hat{B}$ is triangular and the eigenvalues the same as those of 
-$\hat{A}$ and are given by the diagonal matrix elements of 
-$\hat{B}$. Why?  
-
-Our matrix $\hat{B}=\hat{U}\hat{Q}$. 
-
-
-The matrix $\hat{A}$ is transformed into a tridiagonal form and the last
-step is to transform it into a diagonal matrix giving the eigenvalues
-on the diagonal. 
-
-The eigenvalues of a  matrix can be obtained using the characteristic polynomial 
+The eigenvalues of a  tridiagonal matrix can be obtained using the characteristic polynomial 
 !bt
 \[
 P(\lambda) = det(\lambda\mathbf{I}-\mathbf{A})= \prod_{i=1}^{n}\left(\lambda_i-\lambda\right),
@@ -1457,7 +1186,6 @@ P(\lambda)= \left( \begin{array}{ccccccc} d_1-\lambda & e_1 & 0   & 0    & \dots
 !et
 
 
-
 We can solve this equation in an iterative manner. 
 We let $P_k(\lambda)$ be the value of $k$ subdeterminant of the above matrix of dimension
 $n\times n$. The polynomial $P_k(\lambda)$ is clearly a polynomial of degree $k$.
@@ -1474,7 +1202,7 @@ However, for large matrices this algorithm is rather inefficient and time-consum
 
 
 
-===== Lanczos' method =====
+===== Eigenvalues and Lanczos' method =====
 
 Basic features with a real symmetric matrix (and normally huge $n> 10^6$ and sparse) 
 $\hat{A}$ of dimension $n\times n$:
@@ -1524,6 +1252,7 @@ can be written as
 !et
 
 
+
 Using the fact that 
 !bt
 \[
@@ -1564,6 +1293,7 @@ we obtain
 \hat{A}\hat{q}_k=\beta_{k-1}\hat{q}_{k-1}+\alpha_k\hat{q}_k+\beta_k\hat{q}_{k+1}.
 \]
 !et
+
 
 
 We have thus
@@ -3934,8 +3664,6 @@ $\hat{D}^{-1}(\mathbf{x}^{\mathrm{old}})$.
 
 
 
-
-
 ======= Gradient Methods =======
 
 
@@ -3948,17 +3676,12 @@ $\hat{D}^{-1}(\mathbf{x}^{\mathrm{old}})$.
 
 
 ===== Motivation  ===== 
-
-Our aim with this part of the project is to be able to
+!bblock
+Our aim with this part is to be able to
 * find an optimal value for the variational parameters using only some few Monte Carlo cycles
 * use these optimal values for the variational parameters to perform a large-scale Monte Carlo calculation
-
-To achieve this will look at methods like *Steepest descent* and the *conjugate gradient method*. Both these methods allow us to find
-the minima of a multivariable  function like our energy (function of several variational parameters). 
-Alternatively, you can always use Newton's method. In particular, since we will normally have one variational parameter,
-Newton's method can be easily used in finding the minimum of the local energy.
  
-
+!eblock
 
 
 ===== Simple example and demonstration ===== 
@@ -3986,7 +3709,7 @@ We can compare our numerically calculated energies with the exact energy as func
 
 
 ===== Simple example and demonstration ===== 
-
+!bblock
 The derivative of the energy with respect to $\alpha$ gives
 !bt
 \begin{equation*}
@@ -4006,7 +3729,7 @@ The condition
 \end{equation*}
 !et
 gives the optimal $\alpha=1$, as expected.
-
+!eblock
 
 
 ===== Exercise: Find the local energy for the harmonic oscillator =====
@@ -4023,7 +3746,7 @@ Repeat the above steps in two dimensions for $N$ bosons or electrons. What is th
 
 
 ===== Variance in the simple model ===== 
-
+!bblock
 We can also minimize the variance. In our simple model the variance is
 
 !bt
@@ -4032,12 +3755,12 @@ We can also minimize the variance. In our simple model the variance is
 \]
 !et
 which yields a second derivative which is always positive.
-
+!eblock
 
 
 
 ===== Computing the derivatives ===== 
-
+!bblock
 
 In general we end up computing the expectation value of the energy in terms 
 of some parameters $\alpha_0,\alpha_1,\dots,\alpha_n$
@@ -4049,12 +3772,12 @@ However, in our actual calculations the energy is represented by a multi-dimensi
 How can we can then obtain the derivatives of the energy with respect to the variational parameters without having 
 to resort to expensive numerical derivations? 
 
-
+!eblock
 
 
 
 ===== Expressions for finding the derivatives of the local energy ===== 
-
+!bblock
 
 To find the derivatives of the local energy expectation value as function of the variational parameters, we can use the chain rule and the hermiticity of the Hamiltonian.  
 
@@ -4072,13 +3795,13 @@ We define also the derivative of the trial function (skipping the subindex $T$) 
 \bar{\psi}_{\alpha}=\frac{d\psi[\alpha]\rangle}{d\alpha}.
 \]
 !et  
-
+!eblock
 
 
 
 
 ===== Derivatives of the local energy ===== 
-
+!bblock
 The elements of the gradient of the local energy are then (using the chain rule and the hermiticity of the Hamiltonian)
 !bt
 \[
@@ -4097,7 +3820,7 @@ and
 \langle \frac{\bar{\psi}_{\alpha}}{\psi[\alpha]}\rangle\langle E_L[\alpha]\rangle
 \]
 !et
-
+!eblock
 
 
 
@@ -4696,7 +4419,7 @@ ensures convexity of a function $f$. We write $D_f$ to denote the
 domain of $f$, i.e the subset of $R^n$ where $f$ is defined. For more
 details and proofs we refer to: "S. Boyd and L. Vandenberghe. Convex Optimization. Cambridge University Press":"http://stanford.edu/boyd/cvxbook/, 2004".
 
- First order condition
+!bblock First order condition
 Suppose $f$ is differentiable (i.e $\nabla f(x)$ is well defined for
 all $x$ in the domain of $f$). Then $f$ is convex if and only if $D_f$
 is a convex set and $$f(y) \geq f(x) + \nabla f(x)^T (y-x) $$ holds
@@ -4705,16 +4428,16 @@ the first order Taylor expansion (right hand side above) at any point
 a global under estimator of the function. To convince yourself you can
 make a drawing of $f(x) = x^2+1$ and draw the tangent line to $f(x)$ and
 note that it is always below the graph.  
+!eblock
 
-
- Second order condition 
+!bblock Second order condition 
 Assume that $f$ is twice
 differentiable, i.e the Hessian matrix exists at each point in
 $D_f$. Then $f$ is convex if and only if $D_f$ is a convex set and its
 Hessian is positive semi-definite for all $x\in D_f$. For a
 single-variable function this reduces to $f''(x) \geq 0$. Geometrically this means that $f$ has nonnegative curvature
 everywhere.
-
+!eblock
 
 This condition is particularly useful since it gives us an procedure for determining if the function under consideration is convex, apart from using the definition.
 
@@ -4731,11 +4454,11 @@ global minimum (for high-dimensional models it is hard to know
 if we have local or global minimum). However, if the cost/loss function
 is convex the following result provides invaluable information:
 
- Any minimum is global for convex functions
+!bblock Any minimum is global for convex functions
 Consider the problem of finding $x \in \mathbb{R}^n$ such that $f(x)$
 is minimal, where $f$ is convex and differentiable. Then, any point
 $x^*$ that satisfies $\nabla f(x^*) = 0$ is a global minimum.
-
+!eblock
 
 This result means that if we know that the cost/loss function is convex and we are able to find a minimum, we are guaranteed that it is a global minimum.
 
@@ -4822,7 +4545,7 @@ instead.
 
 
 ===== Steepest descent  method ===== 
-
+!bblock
 One can show that the solution $\hat{x}$ is also the unique minimizer of the quadratic form
 !bt
 \begin{equation*}
@@ -4840,11 +4563,11 @@ which equals
 and 
 $\hat{x}_0=0$ it is equal $-\hat{b}$.
 
-
+!eblock
 
 
 ===== Final expressions ===== 
-
+!bblock
 We can compute the residual iteratively as
 !bt
 \begin{equation*}
@@ -4876,204 +4599,13 @@ leading to the iterative scheme
 \hat{x}_{k+1}=\hat{x}_k-\alpha_k\hat{r}_{k},
  \end{equation*}
 !et
-
-
-
-
-
-
-===== Conjugate gradient method ===== 
-
-In the CG method we define so-called conjugate directions and two vectors 
-$\hat{s}$ and $\hat{t}$
-are said to be
-conjugate if
-!bt
-\begin{equation*}
-\hat{s}^T\hat{A}\hat{t}= 0.
-\end{equation*}
-!et
-The philosophy of the CG method is to perform searches in various conjugate directions
-of our vectors $\hat{x}_i$ obeying the above criterion, namely
-!bt
-\begin{equation*}
-\hat{x}_i^T\hat{A}\hat{x}_j= 0.
-\end{equation*}
-!et
-Two vectors are conjugate if they are orthogonal with respect to 
-this inner product. Being conjugate is a symmetric relation: if $\hat{s}$ is conjugate to $\hat{t}$, then $\hat{t}$ is conjugate to $\hat{s}$.
-
-
-
-===== Conjugate gradient method ===== 
-
-An example is given by the eigenvectors of the matrix
-!bt
-\begin{equation*}
-\hat{v}_i^T\hat{A}\hat{v}_j= \lambda\hat{v}_i^T\hat{v}_j,
-\end{equation*}
-!et
-which is zero unless $i=j$. 
-
-
-
-
-===== Conjugate gradient method ===== 
-
-Assume now that we have a symmetric positive-definite matrix $\hat{A}$ of size
-$n\times n$. At each iteration $i+1$ we obtain the conjugate direction of a vector
-!bt
-\begin{equation*}
-\hat{x}_{i+1}=\hat{x}_{i}+\alpha_i\hat{p}_{i}. 
-\end{equation*}
-!et
-We assume that $\hat{p}_{i}$ is a sequence of $n$ mutually conjugate directions. 
-Then the $\hat{p}_{i}$  form a basis of $R^n$ and we can expand the solution 
-$  \hat{A}\hat{x} = \hat{b}$ in this basis, namely
-
-!bt
-\begin{equation*}
-  \hat{x}  = \sum^{n}_{i=1} \alpha_i \hat{p}_i.
-\end{equation*}
-!et
-
-
-
-===== Conjugate gradient method ===== 
-
-The coefficients are given by
-!bt
-\begin{equation*}
-    \mathbf{A}\mathbf{x} = \sum^{n}_{i=1} \alpha_i \mathbf{A} \mathbf{p}_i = \mathbf{b}.
-\end{equation*}
-!et
-Multiplying with $\hat{p}_k^T$  from the left gives
-
-!bt
-\begin{equation*}
-  \hat{p}_k^T \hat{A}\hat{x} = \sum^{n}_{i=1} \alpha_i\hat{p}_k^T \hat{A}\hat{p}_i= \hat{p}_k^T \hat{b},
-\end{equation*}
-!et
-and we can define the coefficients $\alpha_k$ as
-
-!bt
-\begin{equation*}
-    \alpha_k = \frac{\hat{p}_k^T \hat{b}}{\hat{p}_k^T \hat{A} \hat{p}_k}
-\end{equation*}
-!et 
-
-
-
-===== Conjugate gradient method and iterations ===== 
-
-
-If we choose the conjugate vectors $\hat{p}_k$ carefully, 
-then we may not need all of them to obtain a good approximation to the solution 
-$\hat{x}$. 
-We want to regard the conjugate gradient method as an iterative method. 
-This will us to solve systems where $n$ is so large that the direct 
-method would take too much time.
-
-We denote the initial guess for $\hat{x}$ as $\hat{x}_0$. 
-We can assume without loss of generality that
-!bt
-\begin{equation*}
-\hat{x}_0=0,
-\end{equation*}
-!et
-or consider the system
-!bt
-\begin{equation*}
-\hat{A}\hat{z} = \hat{b}-\hat{A}\hat{x}_0,
-\end{equation*}
-!et
-instead.
-
-
-
-
-===== Conjugate gradient method ===== 
-
-One can show that the solution $\hat{x}$ is also the unique minimizer of the quadratic form
-!bt
-\begin{equation*}
-  f(\hat{x}) = \frac{1}{2}\hat{x}^T\hat{A}\hat{x} - \hat{x}^T \hat{x} , \quad \hat{x}\in\mathbf{R}^n. 
-\end{equation*}
-!et
-This suggests taking the first basis vector $\hat{p}_1$ 
-to be the gradient of $f$ at $\hat{x}=\hat{x}_0$, 
-which equals
-!bt
-\begin{equation*}
-\hat{A}\hat{x}_0-\hat{b},
-\end{equation*}
-!et
-and 
-$\hat{x}_0=0$ it is equal $-\hat{b}$.
-The other vectors in the basis will be conjugate to the gradient, 
-hence the name conjugate gradient method.
-
-
-
-
-===== Conjugate gradient method ===== 
-
-Let  $\hat{r}_k$ be the residual at the $k$-th step:
-!bt
-\begin{equation*}
-\hat{r}_k=\hat{b}-\hat{A}\hat{x}_k.
-\end{equation*}
-!et
-Note that $\hat{r}_k$ is the negative gradient of $f$ at 
-$\hat{x}=\hat{x}_k$, 
-so the gradient descent method would be to move in the direction $\hat{r}_k$. 
-Here, we insist that the directions $\hat{p}_k$ are conjugate to each other, 
-so we take the direction closest to the gradient $\hat{r}_k$  
-under the conjugacy constraint. 
-This gives the following expression
-!bt
-\begin{equation*}
-\hat{p}_{k+1}=\hat{r}_k-\frac{\hat{p}_k^T \hat{A}\hat{r}_k}{\hat{p}_k^T\hat{A}\hat{p}_k} \hat{p}_k.
-\end{equation*}
-!et
-
-
-
-===== Conjugate gradient method ===== 
-
-We can also  compute the residual iteratively as
-!bt
-\begin{equation*}
-\hat{r}_{k+1}=\hat{b}-\hat{A}\hat{x}_{k+1},
- \end{equation*}
-!et
-which equals
-!bt
-\begin{equation*}
-\hat{b}-\hat{A}(\hat{x}_k+\alpha_k\hat{p}_k),
- \end{equation*}
-!et
-or
-!bt
-\begin{equation*}
-(\hat{b}-\hat{A}\hat{x}_k)-\alpha_k\hat{A}\hat{p}_k,
- \end{equation*}
-!et
-which gives
-
-!bt
-\begin{equation*}
-\hat{r}_{k+1}=\hat{r}_k-\hat{A}\hat{p}_{k},
- \end{equation*}
-!et
-
-
+!eblock
 
 
 
 
 ===== Broyden–Fletcher–Goldfarb–Shanno algorithm =====
-
+!bblock
 The optimization problem is to minimize $f(\mathbf {x} )$ where $\mathbf {x}$  is a vector in $R^{n}$, and $f$ is a differentiable scalar function. There are no constraints on the values that  $\mathbf {x}$  can take.
 
 The algorithm begins at an initial estimate for the optimal value $\mathbf {x}_{0}$ and proceeds iteratively to get a better estimate at each stage.
@@ -5098,7 +4630,206 @@ f(\mathbf {x}_{k}+\alpha \mathbf {p}_{k}),
 !et
 over the scalar $\alpha > 0$.
 
+!eblock
 
+
+
+
+
+===== Using gradient descent methods, limitations =====
+
+* _Gradient descent (GD) finds local minima of our function_. Since the GD algorithm is deterministic, if it converges, it will converge to a local minimum of our cost/loss/risk function. Because in ML we are often dealing with extremely rugged landscapes with many local minima, this can lead to poor performance.
+
+* _GD is sensitive to initial conditions_. One consequence of the local nature of GD is that initial conditions matter. Depending on where one starts, one will end up at a different local minima. Therefore, it is very important to think about how one initializes the training process. This is true for GD as well as more complicated variants of GD.
+
+* _Gradients are computationally expensive to calculate for large datasets_. In many cases in statistics and ML, the cost/loss/risk function is a sum of terms, with one term for each data point. For example, in linear regression, $E \propto \sum_{i=1}^n (y_i - \mathbf{w}^T\cdot\mathbf{x}_i)^2$; for logistic regression, the square error is replaced by the cross entropy. To calculate the gradient we have to sum over *all* $n$ data points. Doing this at every GD step becomes extremely computationally expensive. An ingenious solution to this, is to calculate the gradients using small subsets of the data called ``mini batches''. This has the added benefit of introducing stochasticity into our algorithm.
+
+* _GD is very sensitive to choices of learning rates_. GD is extremely sensitive to the choice of learning rates. If the learning rate is very small, the training process take an extremely long time. For larger learning rates, GD can diverge and give poor results. Furthermore, depending on what the local landscape looks like, we have to modify the learning rates to ensure convergence. Ideally, we would *adaptively* choose the learning rates to match the landscape.
+
+* _GD treats all directions in parameter space uniformly._ Another major drawback of GD is that unlike Newton's method, the learning rate for GD is the same in all directions in parameter space. For this reason, the maximum learning rate is set by the behavior of the steepest direction and this can significantly slow down training. Ideally, we would like to take large steps in flat directions and small steps in steep directions. Since we are exploring rugged landscapes where curvatures change, this requires us to keep track of not only the gradient but second derivatives. The ideal scenario would be to calculate the Hessian but this proves to be too computationally expensive. 
+	
+* GD can take exponential time to escape saddle points, even with random initialization. As we mentioned, GD is extremely sensitive to initial condition since it determines the particular local minimum GD would eventually reach. However, even with a good initialization scheme, through the introduction of randomness, GD can still take exponential time to escape saddle points.
+
+
+===== Improving gradient descent with momentum =====
+
+We discuss here some simple examples where we introduce what is called 'memory'about previous steps, or what is normally called momentum gradient descent. The mathematics is explained below in connection with Stochastic gradient descent.
+
+!bc pycod
+from numpy import asarray
+from numpy import arange
+from numpy.random import rand
+from numpy.random import seed
+from matplotlib import pyplot
+ 
+# objective function
+def objective(x):
+	return x**2.0
+ 
+# derivative of objective function
+def derivative(x):
+	return x * 2.0
+ 
+# gradient descent algorithm
+def gradient_descent(objective, derivative, bounds, n_iter, step_size):
+	# track all solutions
+	solutions, scores = list(), list()
+	# generate an initial point
+	solution = bounds[:, 0] + rand(len(bounds)) * (bounds[:, 1] - bounds[:, 0])
+	# run the gradient descent
+	for i in range(n_iter):
+		# calculate gradient
+		gradient = derivative(solution)
+		# take a step
+		solution = solution - step_size * gradient
+		# evaluate candidate point
+		solution_eval = objective(solution)
+		# store solution
+		solutions.append(solution)
+		scores.append(solution_eval)
+		# report progress
+		print('>%d f(%s) = %.5f' % (i, solution, solution_eval))
+	return [solutions, scores]
+ 
+# seed the pseudo random number generator
+seed(4)
+# define range for input
+bounds = asarray([[-1.0, 1.0]])
+# define the total iterations
+n_iter = 30
+# define the step size
+step_size = 0.1
+# perform the gradient descent search
+solutions, scores = gradient_descent(objective, derivative, bounds, n_iter, step_size)
+# sample input range uniformly at 0.1 increments
+inputs = arange(bounds[0,0], bounds[0,1]+0.1, 0.1)
+# compute targets
+results = objective(inputs)
+# create a line plot of input vs result
+pyplot.plot(inputs, results)
+# plot the solutions found
+pyplot.plot(solutions, scores, '.-', color='red')
+# show the plot
+pyplot.show()
+
+!ec
+
+
+
+===== Same code but now with momentum gradient descent =====
+
+!bc pycod
+from numpy import asarray
+from numpy import arange
+from numpy.random import rand
+from numpy.random import seed
+from matplotlib import pyplot
+ 
+# objective function
+def objective(x):
+	return x**2.0
+ 
+# derivative of objective function
+def derivative(x):
+	return x * 2.0
+ 
+# gradient descent algorithm
+def gradient_descent(objective, derivative, bounds, n_iter, step_size, momentum):
+	# track all solutions
+	solutions, scores = list(), list()
+	# generate an initial point
+	solution = bounds[:, 0] + rand(len(bounds)) * (bounds[:, 1] - bounds[:, 0])
+	# keep track of the change
+	change = 0.0
+	# run the gradient descent
+	for i in range(n_iter):
+		# calculate gradient
+		gradient = derivative(solution)
+		# calculate update
+		new_change = step_size * gradient + momentum * change
+		# take a step
+		solution = solution - new_change
+		# save the change
+		change = new_change
+		# evaluate candidate point
+		solution_eval = objective(solution)
+		# store solution
+		solutions.append(solution)
+		scores.append(solution_eval)
+		# report progress
+		print('>%d f(%s) = %.5f' % (i, solution, solution_eval))
+	return [solutions, scores]
+ 
+# seed the pseudo random number generator
+seed(4)
+# define range for input
+bounds = asarray([[-1.0, 1.0]])
+# define the total iterations
+n_iter = 30
+# define the step size
+step_size = 0.1
+# define momentum
+momentum = 0.3
+# perform the gradient descent search with momentum
+solutions, scores = gradient_descent(objective, derivative, bounds, n_iter, step_size, momentum)
+# sample input range uniformly at 0.1 increments
+inputs = arange(bounds[0,0], bounds[0,1]+0.1, 0.1)
+# compute targets
+results = objective(inputs)
+# create a line plot of input vs result
+pyplot.plot(inputs, results)
+# plot the solutions found
+pyplot.plot(solutions, scores, '.-', color='red')
+# show the plot
+pyplot.show()
+!ec
+
+
+
+
+===== Overview video on Stochastic Gradient Descent =====
+
+"What is Stochastic Gradient Descent":"https://www.youtube.com/watch?v=vMh0zPT0tLI&ab_channel=StatQuestwithJoshStarmer"
+
+
+
+=====  Batches and mini-batches =====
+
+In gradient descent we compute the cost function and its gradient for all data points we have.
+
+In large-scale applications such as the "ILSVRC challenge":"https://www.image-net.org/challenges/LSVRC/", the
+training data can have on order of millions of examples. Hence, it
+seems wasteful to compute the full cost function over the entire
+training set in order to perform only a single parameter update. A
+very common approach to addressing this challenge is to compute the
+gradient over batches of the training data. For example, a typical batch could contain some thousand  examples from
+an  entire training set of several millions. This batch is then used to
+perform a parameter update.
+
+
+===== Stochastic Gradient Descent (SGD) =====
+
+In stochastic gradient descent, the extreme case is the case where we
+have only one batch, that is we include the whole data set.
+
+This process is called Stochastic Gradient
+Descent (SGD) (or also sometimes on-line gradient descent). This is
+relatively less common to see because in practice due to vectorized
+code optimizations it can be computationally much more efficient to
+evaluate the gradient for 100 examples, than the gradient for one
+example 100 times. Even though SGD technically refers to using a
+single example at a time to evaluate the gradient, you will hear
+people use the term SGD even when referring to mini-batch gradient
+descent (i.e. mentions of MGD for “Minibatch Gradient Descent”, or BGD
+for “Batch gradient descent” are rare to see), where it is usually
+assumed that mini-batches are used. The size of the mini-batch is a
+hyperparameter but it is not very common to cross-validate or bootstrap it. It is
+usually based on memory constraints (if any), or set to some value,
+e.g. 32, 64 or 128. We use powers of 2 in practice because many
+vectorized operation implementations work faster when their inputs are
+sized in powers of 2.
+
+In our notes with  SGD we mean stochastic gradient descent with mini-batches.
 
 
 
@@ -5107,7 +4838,7 @@ over the scalar $\alpha > 0$.
 Stochastic gradient descent (SGD) and variants thereof address some of
 the shortcomings of the Gradient descent method discussed above.
 
-The underlying idea of SGD comes from the observation that a given 
+The underlying idea of SGD comes from the observation that the cost
 function, which we want to minimize, can almost always be written as a
 sum over $n$ data points $\{\mathbf{x}_i\}_{i=1}^n$,
 !bt
@@ -5134,6 +4865,8 @@ gradient on a subset of the data called minibatches.  If there are $n$
 data points and the size of each minibatch is $M$, there will be $n/M$
 minibatches. We denote these minibatches by $B_k$ where
 $k=1,\cdots,n/M$.
+
+
 
 
 ===== SGD example =====
@@ -5222,7 +4955,16 @@ gave the lowest value.
 
 Another approach is to let the step length $\gamma_j$ depend on the
 number of epochs in such a way that it becomes very small after a
-reasonable time such that we do not move at all.
+reasonable time such that we do not move at all. Such approaches are
+also called scaling. There are many such ways to "scale the learning
+rate":"https://towardsdatascience.com/gradient-descent-the-learning-rate-and-the-importance-of-feature-scaling-6c0b416596e1"
+and "discussions here":"https://www.jmlr.org/papers/volume23/20-1258/20-1258.pdf". See
+also
+URL:"https://towardsdatascience.com/learning-rate-schedules-and-adaptive-learning-rate-methods-for-deep-learning-2c8f433990d1"
+for a discussion of different scaling functions for the learning rate.
+
+
+===== Time decay rate =====
 
 As an example, let $e = 0,1,2,3,\cdots$ denote the current epoch and let $t_0, t_1 > 0$ be two fixed numbers. Furthermore, let $t = e \cdot m + i$ where $m$ is the number of minibatches and $i=0,\cdots,m-1$. Then the function $$\gamma_j(t; t_0, t_1) = \frac{t_0}{t+t_1} $$ goes to zero as the number of epochs gets large. I.e. we start with a step length $\gamma_j (0; t_0, t_1) = t_0/t_1$ which decays in *time* $t$.
 
@@ -5264,66 +5006,68 @@ print("gamma_j after %d epochs: %g" % (n_epochs,gamma_j))
 
 
 
-=====  Program for stochastic gradient =====
 
-!bc pycod
+===== Code with a Number of Minibatches which varies =====
+
+In the code here we vary the number of mini-batches.
+!bc pycode
 # Importing various packages
 from math import exp, sqrt
 from random import random, seed
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.linear_model import SGDRegressor
 
-x = 2*np.random.rand(100,1)
-y = 4+3*x+np.random.randn(100,1)
+n = 100
+x = 2*np.random.rand(n,1)
+y = 4+3*x+np.random.randn(n,1)
 
-xb = np.c_[np.ones((100,1)), x]
-theta_linreg = np.linalg.inv(xb.T.dot(xb)).dot(xb.T).dot(y)
+X = np.c_[np.ones((n,1)), x]
+XT_X = X.T @ X
+theta_linreg = np.linalg.inv(X.T @ X) @ (X.T @ y)
 print("Own inversion")
 print(theta_linreg)
-sgdreg = SGDRegressor(n_iter = 50, penalty=None, eta0=0.1)
-sgdreg.fit(x,y.ravel())
-print("sgdreg from scikit")
-print(sgdreg.intercept_, sgdreg.coef_)
-
+# Hessian matrix
+H = (2.0/n)* XT_X
+EigValues, EigVectors = np.linalg.eig(H)
+print(f"Eigenvalues of Hessian Matrix:{EigValues}")
 
 theta = np.random.randn(2,1)
-
-eta = 0.1
+eta = 1.0/np.max(EigValues)
 Niterations = 1000
-m = 100
+
 
 for iter in range(Niterations):
-    gradients = 2.0/m*xb.T.dot(xb.dot(theta)-y)
+    gradients = 2.0/n*X.T @ ((X @ theta)-y)
     theta -= eta*gradients
-print("theta frm own gd")
+print("theta from own gd")
 print(theta)
 
 xnew = np.array([[0],[2]])
-xbnew = np.c_[np.ones((2,1)), xnew]
-ypredict = xbnew.dot(theta)
-ypredict2 = xbnew.dot(theta_linreg)
-
+Xnew = np.c_[np.ones((2,1)), xnew]
+ypredict = Xnew.dot(theta)
+ypredict2 = Xnew.dot(theta_linreg)
 
 n_epochs = 50
+M = 5   #size of each minibatch
+m = int(n/M) #number of minibatches
 t0, t1 = 5, 50
-m = 100
+
 def learning_schedule(t):
     return t0/(t+t1)
 
 theta = np.random.randn(2,1)
 
 for epoch in range(n_epochs):
+# Can you figure out a better way of setting up the contributions to each batch?
     for i in range(m):
-        random_index = np.random.randint(m)
-        xi = xb[random_index:random_index+1]
-        yi = y[random_index:random_index+1]
-        gradients = 2 * xi.T.dot(xi.dot(theta)-yi)
+        random_index = M*np.random.randint(m)
+        xi = X[random_index:random_index+M]
+        yi = y[random_index:random_index+M]
+        gradients = (2.0/M)* xi.T @ ((xi @ theta)-yi)
         eta = learning_schedule(epoch*m+i)
         theta = theta - eta*gradients
 print("theta from own sdg")
 print(theta)
-
 
 plt.plot(xnew, ypredict, "r-")
 plt.plot(xnew, ypredict2, "b-")
@@ -5339,2010 +5083,1149 @@ plt.show()
 
 
 
-===== Using gradient descent methods, limitations =====
+===== Replace or not =====
 
-* _Gradient descent (GD) finds local minima of our function_. Since the GD algorithm is deterministic, if it converges, it will converge to a local minimum of our energy function. Because in ML we are often dealing with extremely rugged landscapes with many local minima, this can lead to poor performance.
-
-* _GD is sensitive to initial conditions_. One consequence of the local nature of GD is that initial conditions matter. Depending on where one starts, one will end up at a different local minima. Therefore, it is very important to think about how one initializes the training process. This is true for GD as well as more complicated variants of GD.
-
-* _Gradients are computationally expensive to calculate for large datasets_. In many cases in statistics and ML, the energy function is a sum of terms, with one term for each data point. For example, in linear regression, $E \propto \sum_{i=1}^n (y_i - \mathbf{w}^T\cdot\mathbf{x}_i)^2$; for logistic regression, the square error is replaced by the cross entropy. To calculate the gradient we have to sum over *all* $n$ data points. Doing this at every GD step becomes extremely computationally expensive. An ingenious solution to this, is to calculate the gradients using small subsets of the data called ``mini batches''. This has the added benefit of introducing stochasticity into our algorithm.
-
-* _GD is very sensitive to choices of learning rates_. GD is extremely sensitive to the choice of learning rates. If the learning rate is very small, the training process take an extremely long time. For larger learning rates, GD can diverge and give poor results. Furthermore, depending on what the local landscape looks like, we have to modify the learning rates to ensure convergence. Ideally, we would *adaptively* choose the learning rates to match the landscape.
-
-* _GD treats all directions in parameter space uniformly._ Another major drawback of GD is that unlike Newton's method, the learning rate for GD is the same in all directions in parameter space. For this reason, the maximum learning rate is set by the behavior of the steepest direction and this can significantly slow down training. Ideally, we would like to take large steps in flat directions and small steps in steep directions. Since we are exploring rugged landscapes where curvatures change, this requires us to keep track of not only the gradient but second derivatives. The ideal scenario would be to calculate the Hessian but this proves to be too computationally expensive. 
-	
-* GD can take exponential time to escape saddle points, even with random initialization. As we mentioned, GD is extremely sensitive to initial condition since it determines the particular local minimum GD would eventually reach. However, even with a good initialization scheme, through the introduction of randomness, GD can still take exponential time to escape saddle points.
-	
+In the above code, we have use replacement in setting up the
+mini-batches. The discussion
+"here":"https://sebastianraschka.com/faq/docs/sgd-methods.html" may be
+useful.  
 
 
 
-===== Codes from numerical recipes =====
+===== Momentum based GD =====
 
-You can however use codes we have adapted from the text "Numerical Recipes in C++":"http://www.nr.com/", see chapter 10.7.  
-Here we present a program, which you also can find at the webpage of the course we use the functions _dfpmin_ and _lnsrch_.  This is a variant of the Broyden et al algorithm discussed in the previous slide.
-
-* The program uses the harmonic oscillator in one dimensions as example.
-* The program does not use armadillo to handle vectors and matrices, but employs rather my own vector-matrix class. These auxiliary functions, and the main program *model.cpp* can all be found under the "program link here":"https://github.com/CompPhysics/ComputationalPhysics2/tree/gh-pages/doc/pub/cg/programs/c%2B%2B".
-
-Below we show only excerpts from the main program. For the full program, see the above link.
-
-
-
-
-===== Finding the minimum of the harmonic oscillator model in one dimension =====
-
-!bc pycod
-//   Main function begins here
-int main()
-{
-     int n, iter;
-     double gtol, fret;
-     double alpha;
-     n = 1;
-//   reserve space in memory for vectors containing the variational
-//   parameters
-     Vector g(n), p(n);
-     cout << "Read in guess for alpha" << endl;
-     cin >> alpha;
-     gtol = 1.0e-5;
-//   now call dfmin and compute the minimum
-     p(0) = alpha;
-     dfpmin(p, n, gtol, &iter, &fret, Efunction, dEfunction);
-     cout << "Value of energy minimum = " << fret << endl;
-     cout << "Number of iterations = " << iter << endl;
-     cout << "Value of alpha at minimum = " << p(0) << endl;
-      return 0;
-}  // end of main program
-
-!ec
-
-
-
-
-
-===== Functions to observe =====
-
-The functions _Efunction_ and _dEfunction_ compute the expectation value of the energy and its derivative.
-They use the the quasi-Newton method of "Broyden, Fletcher, Goldfarb, and Shanno (BFGS)":"https://www.springer.com/it/book/9780387303031"
-It uses the first derivatives only. The BFGS algorithm has proven good performance even for non-smooth optimizations. 
-These functions need to be changed when you want to your own derivatives.
-!bc pycod
-//  this function defines the expectation value of the local energy
-double Efunction(Vector  &x)
-{
-  double value = x(0)*x(0)*0.5+1.0/(8*x(0)*x(0));
-  return value;
-} // end of function to evaluate
-
-//  this function defines the derivative of the energy 
-void dEfunction(Vector &x, Vector &g)
-{
-  g(0) = x(0)-1.0/(4*x(0)*x(0)*x(0));
-} // end of function to evaluate
-!ec
-You need to change these functions in order to compute the local energy for your system. I used 1000
-cycles per call to get a new value of $\langle E_L[\alpha]\rangle$.
-When I compute the local energy I also compute its derivative.
-After roughly 10-20 iterations I got a converged result in terms of $\alpha$.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-======= Resampling Techniques, Bootstrap and Blocking =======
-
-
-
-===== Why resampling methods ? ===== 
- Statistical analysis
-    * Our simulations can be treated as *computer experiments*. This is particularly the case for Monte Carlo methods
-    * The results can be analysed with the same statistical tools as we would use analysing experimental data.
-    * As in all experiments, we are looking for expectation values and an estimate of how accurate they are, i.e., possible sources for errors.
-
-
-    
-
-
-=====  Statistical analysis ===== 
- 
-    * As in other experiments, many numerical  experiments have two classes of errors:
-      * Statistical errors
-      * Systematical errors
-    * Statistical errors can be estimated using standard tools from statistics
-    * Systematical errors are method specific and must be treated differently from case to case. 
-    
-
-
-
-
-
-===== Statistics, wrapping up from last week =====
-
-Let us analyze the problem by splitting up the correlation term into
-partial sums of the form:
-!bt
-\[
-f_d = \frac{1}{n-d}\sum_{k=1}^{n-d}(x_k - \bar x_n)(x_{k+d} - \bar x_n)
-\]
-!et
-The correlation term of the error can now be rewritten in terms of
-$f_d$
-!bt
-\[
-\frac{2}{n}\sum_{k<l} (x_k - \bar x_n)(x_l - \bar x_n) =
-2\sum_{d=1}^{n-1} f_d
-\]
-!et
-The value of $f_d$ reflects the correlation between measurements
-separated by the distance $d$ in the sample samples.  Notice that for
-$d=0$, $f$ is just the sample variance, $\mathrm{var}(x)$. If we divide $f_d$
-by $\mathrm{var}(x)$, we arrive at the so called *autocorrelation function*
-!bt
-\[
-\kappa_d = \frac{f_d}{\mathrm{var}(x)}
-\]
-!et
-which gives us a useful measure of pairwise correlations
-starting always at $1$ for $d=0$.
-
-
-
-
-===== Statistics, final expression =====
-
-The sample error can now be
-written in terms of the autocorrelation function:
+The stochastic gradient descent (SGD) is almost always used with a
+*momentum* or inertia term that serves as a memory of the direction we
+are moving in parameter space.  This is typically implemented as
+follows
 
 !bt
 \begin{align}
-\mathrm{err}_X^2 &=
-\frac{1}{n}\mathrm{var}(x)+\frac{2}{n}\cdot\mathrm{var}(x)\sum_{d=1}^{n-1}
-\frac{f_d}{\mathrm{var}(x)}\nonumber\\ &=&
-\left(1+2\sum_{d=1}^{n-1}\kappa_d\right)\frac{1}{n}\mathrm{var}(x)\nonumber\\
-&=\frac{\tau}{n}\cdot\mathrm{var}(x)
+\mathbf{v}_{t}&=\gamma \mathbf{v}_{t-1}+\eta_{t}\nabla_\theta E(\boldsymbol{\theta}_t) \nonumber \\
+\boldsymbol{\theta}_{t+1}&= \boldsymbol{\theta}_t -\mathbf{v}_{t},
 \end{align}
-
-!et
-and we see that $\mathrm{err}_X$ can be expressed in terms the
-uncorrelated sample variance times a correction factor $\tau$ which
-accounts for the correlation between measurements. We call this
-correction factor the *autocorrelation time*:
-!bt
-\begin{equation}
-\tau = 1+2\sum_{d=1}^{n-1}\kappa_d
-label{eq:autocorrelation_time}
-\end{equation}
 !et
 
+where we have introduced a momentum parameter $\gamma$, with
+$0\le\gamma\le 1$, and for brevity we dropped the explicit notation to
+indicate the gradient is to be taken over a different mini-batch at
+each step. We call this algorithm gradient descent with momentum
+(GDM). From these equations, it is clear that $\mathbf{v}_t$ is a
+running average of recently encountered gradients and
+$(1-\gamma)^{-1}$ sets the characteristic time scale for the memory
+used in the averaging procedure. Consistent with this, when
+$\gamma=0$, this just reduces down to ordinary SGD as discussed
+earlier. An equivalent way of writing the updates is
 
-
-===== Statistics, effective number of correlations =====
-
-For a correlation free experiment, $\tau$
-equals 1.
-
-We can interpret a sequential
-correlation as an effective reduction of the number of measurements by
-a factor $\tau$. The effective number of measurements becomes:
 !bt
 \[
-n_\mathrm{eff} = \frac{n}{\tau}
+\Delta \boldsymbol{\theta}_{t+1} = \gamma \Delta \boldsymbol{\theta}_t -\ \eta_{t}\nabla_\theta E(\boldsymbol{\theta}_t),
 \]
 !et
-To neglect the autocorrelation time $\tau$ will always cause our
-simple uncorrelated estimate of $\mathrm{err}_X^2\approx \mathrm{var}(x)/n$ to
-be less than the true sample error. The estimate of the error will be
-too *good*. On the other hand, the calculation of the full
-autocorrelation time poses an efficiency problem if the set of
-measurements is very large.
+where we have defined $\Delta \boldsymbol{\theta}_{t}= \boldsymbol{\theta}_t-\boldsymbol{\theta}_{t-1}$.
 
 
+===== More on momentum based approaches =====
 
+Let us try to get more intuition from these equations. It is helpful
+to consider a simple physical analogy with a particle of mass $m$
+moving in a viscous medium with drag coefficient $\mu$ and potential
+$E(\mathbf{w})$. If we denote the particle's position by $\mathbf{w}$,
+then its motion is described by
 
-
-
-
-
-===== Can we understand this? Time Auto-correlation Function =====
-
-
-The so-called time-displacement autocorrelation $\phi(t)$ for a quantity $\mathbf{M}$ is given by
 !bt
 \[
-\phi(t) = \int dt' \left[\mathbf{M}(t')-\langle \mathbf{M} \rangle\right]\left[\mathbf{M}(t'+t)-\langle \mathbf{M} \rangle\right],
+m {d^2 \mathbf{w} \over dt^2} + \mu {d \mathbf{w} \over dt }= -\nabla_w E(\mathbf{w}).
 \]
 !et
-which can be rewritten as 
+
+We can discretize this equation in the usual way to get
+
 !bt
 \[
-\phi(t) = \int dt' \left[\mathbf{M}(t')\mathbf{M}(t'+t)-\langle \mathbf{M} \rangle^2\right],
+m { \mathbf{w}_{t+\Delta t}-2 \mathbf{w}_{t} +\mathbf{w}_{t-\Delta t} \over (\Delta t)^2}+\mu {\mathbf{w}_{t+\Delta t}- \mathbf{w}_{t} \over \Delta t} = -\nabla_w E(\mathbf{w}).
 \]
 !et
-where $\langle \mathbf{M} \rangle$ is the average value and
-$\mathbf{M}(t)$ its instantaneous value. We can discretize this function as follows, where we used our
-set of computed values $\mathbf{M}(t)$ for a set of discretized times (our Monte Carlo cycles corresponding to moving all electrons?)
+
+Rearranging this equation, we can rewrite this as
+
 !bt
 \[
-\phi(t)  = \frac{1}{t_{\mathrm{max}}-t}\sum_{t'=0}^{t_{\mathrm{max}}-t}\mathbf{M}(t')\mathbf{M}(t'+t)
--\frac{1}{t_{\mathrm{max}}-t}\sum_{t'=0}^{t_{\mathrm{max}}-t}\mathbf{M}(t')\times
-\frac{1}{t_{\mathrm{max}}-t}\sum_{t'=0}^{t_{\mathrm{max}}-t}\mathbf{M}(t'+t).
-label{eq:phitf}
+\Delta \mathbf{w}_{t +\Delta t}= - { (\Delta t)^2 \over m +\mu \Delta t} \nabla_w E(\mathbf{w})+ {m \over m +\mu \Delta t} \Delta \mathbf{w}_t.
 \]
 !et
 
 
+===== Momentum parameter =====
 
+Notice that this equation is identical to previous one if we identify
+the position of the particle, $\mathbf{w}$, with the parameters
+$\boldsymbol{\theta}$. This allows us to identify the momentum
+parameter and learning rate with the mass of the particle and the
+viscous drag as:
 
-===== Time Auto-correlation Function =====
-
-
-One should be careful with times close to $t_{\mathrm{max}}$, the upper limit of the sums 
-becomes small and we end up integrating over a rather small time interval. This means that the statistical
-error in $\phi(t)$ due to the random nature of the fluctuations in $\mathbf{M}(t)$ can become large.
-
-One should therefore choose $t \ll t_{\mathrm{max}}$.
-
-Note that the variable $\mathbf{M}$ can be any expectation values of interest.
-
-
-
-The time-correlation function gives a measure of the correlation between the various values of the variable 
-at a time $t'$ and a time $t'+t$. If we multiply the values of $\mathbf{M}$ at these two different times,
-we will get a positive contribution if they are fluctuating in the same direction, or a negative value
-if they fluctuate in the opposite direction. If we then integrate over time, or use the discretized version of, the time correlation function $\phi(t)$ should take a non-zero value if the fluctuations are 
-correlated, else it should gradually go to zero. For times a long way apart 
-the different values of $\mathbf{M}$  are most likely 
-uncorrelated and $\phi(t)$ should be zero.
-
-
-
-
-
-
-===== Time Auto-correlation Function =====
-
-We can derive the correlation time by observing that our Metropolis algorithm is based on a random
-walk in the space of all  possible spin configurations. 
-Our probability 
-distribution function $\mathbf{\hat{w}}(t)$ after a given number of time steps $t$ could be written as
 !bt
 \[
-   \mathbf{\hat{w}}(t) = \mathbf{\hat{W}^t\hat{w}}(0),
-\]
-!et
-with $\mathbf{\hat{w}}(0)$ the distribution at $t=0$ and $\mathbf{\hat{W}}$ representing the 
-transition probability matrix. 
-We can always expand $\mathbf{\hat{w}}(0)$ in terms of the right eigenvectors of 
-$\mathbf{\hat{v}}$ of $\mathbf{\hat{W}}$ as 
-!bt
-\[
-    \mathbf{\hat{w}}(0)  = \sum_i\alpha_i\mathbf{\hat{v}}_i,
-\]
-!et
-resulting in 
-!bt
-\[
-   \mathbf{\hat{w}}(t) = \mathbf{\hat{W}}^t\mathbf{\hat{w}}(0)=\mathbf{\hat{W}}^t\sum_i\alpha_i\mathbf{\hat{v}}_i=
-\sum_i\lambda_i^t\alpha_i\mathbf{\hat{v}}_i,
-\]
-!et
-with $\lambda_i$ the $i^{\mathrm{th}}$ eigenvalue corresponding to  
-the eigenvector $\mathbf{\hat{v}}_i$. 
-
-
-
-
-
-
-===== Time Auto-correlation Function =====
-
-If we assume that $\lambda_0$ is the largest eigenvector we see that in the limit $t\rightarrow \infty$,
-$\mathbf{\hat{w}}(t)$ becomes proportional to the corresponding eigenvector 
-$\mathbf{\hat{v}}_0$. This is our steady state or final distribution. 
-
-We can relate this property to an observable like the mean energy.
-With the probabilty $\mathbf{\hat{w}}(t)$ (which in our case is the squared trial wave function) we
-can write the expectation values as 
-!bt
-\[
- \langle \mathbf{M}(t) \rangle  = \sum_{\mu} \mathbf{\hat{w}}(t)_{\mu}\mathbf{M}_{\mu},
-\] 
-!et 
-or as the scalar of a  vector product
-!bt
- \[
- \langle \mathbf{M}(t) \rangle  = \mathbf{\hat{w}}(t)\mathbf{m},
-\] 
-!et 
-with $\mathbf{m}$ being the vector whose elements are the values of $\mathbf{M}_{\mu}$ in its 
-various microstates $\mu$.
-
-
-
-
-===== Time Auto-correlation Function =====
-
-
-
-We rewrite this relation  as
-!bt
- \[
- \langle \mathbf{M}(t) \rangle  = \mathbf{\hat{w}}(t)\mathbf{m}=\sum_i\lambda_i^t\alpha_i\mathbf{\hat{v}}_i\mathbf{m}_i.
-\] 
-!et 
-If we define $m_i=\mathbf{\hat{v}}_i\mathbf{m}_i$ as the expectation value of
-$\mathbf{M}$ in the $i^{\mathrm{th}}$ eigenstate we can rewrite the last equation as
-!bt
- \[
- \langle \mathbf{M}(t) \rangle  = \sum_i\lambda_i^t\alpha_im_i.
-\] 
-!et
-Since we have that in the limit $t\rightarrow \infty$ the mean value is dominated by the 
-the largest eigenvalue $\lambda_0$, we can rewrite the last equation as
-!bt
- \[
- \langle \mathbf{M}(t) \rangle  = \langle \mathbf{M}(\infty) \rangle+\sum_{i\ne 0}\lambda_i^t\alpha_im_i.
-\] 
-!et
-We define the quantity
-!bt
-\[
-   \tau_i=-\frac{1}{log\lambda_i},
-\]
-!et
-and rewrite the last expectation value as
-!bt
- \[
- \langle \mathbf{M}(t) \rangle  = \langle \mathbf{M}(\infty) \rangle+\sum_{i\ne 0}\alpha_im_ie^{-t/\tau_i}.
-label{eq:finalmeanm}
-\] 
-!et
-
-
-
-
-===== Time Auto-correlation Function =====
-
-
-The quantities $\tau_i$ are the correlation times for the system. They control also the auto-correlation function 
-discussed above.  The longest correlation time is obviously given by the second largest
-eigenvalue $\tau_1$, which normally defines the correlation time discussed above. For large times, this is the 
-only correlation time that survives. If higher eigenvalues of the transition matrix are well separated from 
-$\lambda_1$ and we simulate long enough,  $\tau_1$ may well define the correlation time. 
-In other cases we may not be able to extract a reliable result for $\tau_1$. 
-Coming back to the time correlation function $\phi(t)$ we can present a more general definition in terms
-of the mean magnetizations $ \langle \mathbf{M}(t) \rangle$. Recalling that the mean value is equal 
-to $ \langle \mathbf{M}(\infty) \rangle$ we arrive at the expectation values
-!bt
-\[
-\phi(t) =\langle \mathbf{M}(0)-\mathbf{M}(\infty)\rangle \langle \mathbf{M}(t)-\mathbf{M}(\infty)\rangle,
-\]
-!et
-resulting in
-!bt
-\[
-\phi(t) =\sum_{i,j\ne 0}m_i\alpha_im_j\alpha_je^{-t/\tau_i},
-\]
-!et
-which is appropriate for all times.
-
-
-
-
-
-===== Correlation Time =====
-
-
-If the correlation function decays exponentially
-!bt
-\[ \phi (t) \sim \exp{(-t/\tau)}\]
-!et
-then the exponential correlation time can be computed as the average
-!bt
-\[   \tau_{\mathrm{exp}}  =  -\langle  \frac{t}{log|\frac{\phi(t)}{\phi(0)}|} \rangle. \]
-!et
-If the decay is exponential, then
-!bt
-\[  \int_0^{\infty} dt \phi(t)  = \int_0^{\infty} dt \phi(0)\exp{(-t/\tau)}  = \tau \phi(0),\] 
-!et
-which  suggests another measure of correlation
-!bt
-\[   \tau_{\mathrm{int}} = \sum_k \frac{\phi(k)}{\phi(0)}, \]
-!et
-called the integrated correlation time.
-
-
-
-
-
-
-
-
-===== Resampling methods: Jackknife and Bootstrap =====
-
-Two famous
-resampling methods are the _independent bootstrap_ and _the jackknife_. 
-
-The jackknife is a special case of the independent bootstrap. Still, the jackknife was made
-popular prior to the independent bootstrap. And as the popularity of
-the independent bootstrap soared, new variants, such as _the dependent bootstrap_.
-
-The Jackknife and independent bootstrap work for
-independent, identically distributed random variables.
-If these conditions are not
-satisfied, the methods will fail.  Yet, it should be said that if the data are
-independent, identically distributed, and we only want to estimate the
-variance of $\overline{X}$ (which often is the case), then there is no
-need for bootstrapping. 
-
-
-===== Resampling methods: Jackknife =====
-
-The Jackknife works by making many replicas of the estimator $\widehat{\theta}$. 
-The jackknife is a resampling method, we explained that this happens by scrambling the data in some way. When using the jackknife, this is done by systematically leaving out one observation from the vector of observed values $\hat{x} = (x_1,x_2,\cdots,X_n)$. 
-Let $\hat{x}_i$ denote the vector
-!bt
-\[
-\hat{x}_i = (x_1,x_2,\cdots,x_{i-1},x_{i+1},\cdots,x_n),
+\gamma= {m \over m +\mu \Delta t }, \qquad \eta = {(\Delta t)^2 \over m +\mu \Delta t}.
 \]
 !et
 
-which equals the vector $\hat{x}$ with the exception that observation
-number $i$ is left out. Using this notation, define
-$\widehat{\theta}_i$ to be the estimator
-$\widehat{\theta}$ computed using $\vec{X}_i$. 
+Thus, as the name suggests, the momentum parameter is proportional to
+the mass of the particle and effectively provides inertia.
+Furthermore, in the large viscosity/small learning rate limit, our
+memory time scales as $(1-\gamma)^{-1} \approx m/(\mu \Delta t)$.
+
+Why is momentum useful? SGD momentum helps the gradient descent
+algorithm gain speed in directions with persistent but small gradients
+even in the presence of stochasticity, while suppressing oscillations
+in high-curvature directions. This becomes especially important in
+situations where the landscape is shallow and flat in some directions
+and narrow and steep in others. It has been argued that first-order
+methods (with appropriate initial conditions) can perform comparable
+to more expensive second order methods, especially in the context of
+complex deep learning models.
+
+These beneficial properties of momentum can sometimes become even more
+pronounced by using a slight modification of the classical momentum
+algorithm called Nesterov Accelerated Gradient (NAG).
+
+In the NAG algorithm, rather than calculating the gradient at the
+current parameters, $\nabla_\theta E(\boldsymbol{\theta}_t)$, one
+calculates the gradient at the expected value of the parameters given
+our current momentum, $\nabla_\theta E(\boldsymbol{\theta}_t +\gamma
+\mathbf{v}_{t-1})$. This yields the NAG update rule
+
+!bt
+\begin{align}
+\mathbf{v}_{t}&=\gamma \mathbf{v}_{t-1}+\eta_{t}\nabla_\theta E(\boldsymbol{\theta}_t +\gamma \mathbf{v}_{t-1}) \nonumber \\
+\boldsymbol{\theta}_{t+1}&= \boldsymbol{\theta}_t -\mathbf{v}_{t}.
+\end{align}
+!et
+
+One of the major advantages of NAG is that it allows for the use of a larger learning rate than GDM for the same choice of $\gamma$.
 
 
-===== Resampling methods: Jackknife estimator =====
 
-To get an estimate for the bias and
-standard error of $\widehat{\theta}$, use the following
-estimators for each component of $\widehat{\theta}$
+===== Second moment of the gradient =====
+
+
+In stochastic gradient descent, with and without momentum, we still
+have to specify a schedule for tuning the learning rates $\eta_t$
+as a function of time.  As discussed in the context of Newton's
+method, this presents a number of dilemmas. The learning rate is
+limited by the steepest direction which can change depending on the
+current position in the landscape. To circumvent this problem, ideally
+our algorithm would keep track of curvature and take large steps in
+shallow, flat directions and small steps in steep, narrow directions.
+Second-order methods accomplish this by calculating or approximating
+the Hessian and normalizing the learning rate by the
+curvature. However, this is very computationally expensive for
+extremely large models. Ideally, we would like to be able to
+adaptively change the step size to match the landscape without paying
+the steep computational price of calculating or approximating
+Hessians.
+
+Recently, a number of methods have been introduced that accomplish
+this by tracking not only the gradient, but also the second moment of
+the gradient. These methods include AdaGrad, AdaDelta, Root Mean Squared Propagation (RMS-Prop), and
+"ADAM":"https://arxiv.org/abs/1412.6980".
+
+
+===== RMS prop =====
+
+In RMS prop, in addition to keeping a running average of the first
+moment of the gradient, we also keep track of the second moment
+denoted by $\mathbf{s}_t=\mathbb{E}[\mathbf{g}_t^2]$. The update rule
+for RMS prop is given by
+
+!bt
+\begin{align}
+\mathbf{g}_t &= \nabla_\theta E(\boldsymbol{\theta}) \\
+\mathbf{s}_t &=\beta \mathbf{s}_{t-1} +(1-\beta)\mathbf{g}_t^2 \nonumber \\
+\boldsymbol{\theta}_{t+1}&=&\boldsymbol{\theta}_t - \eta_t { \mathbf{g}_t \over \sqrt{\mathbf{s}_t +\epsilon}}, \nonumber
+\end{align}
+!et
+
+where $\beta$ controls the averaging time of the second moment and is
+typically taken to be about $\beta=0.9$, $\eta_t$ is a learning rate
+typically chosen to be $10^{-3}$, and $\epsilon\sim 10^{-8} $ is a
+small regularization constant to prevent divergences. Multiplication
+and division by vectors is understood as an element-wise operation. It
+is clear from this formula that the learning rate is reduced in
+directions where the norm of the gradient is consistently large. This
+greatly speeds up the convergence by allowing us to use a larger
+learning rate for flat directions.
+
+
+
+===== "ADAM optimizer":"https://arxiv.org/abs/1412.6980" =====
+
+A related algorithm is the ADAM optimizer. In
+"ADAM":"https://arxiv.org/abs/1412.6980", we keep a running average of
+both the first and second moment of the gradient and use this
+information to adaptively change the learning rate for different
+parameters.  The method isefficient when working with large
+problems involving lots data and/or parameters.  It is a combination of the
+gradient descent with momentum algorithm and the RMSprop algorithm
+discussed above.
+
+In addition to keeping a running average of the first and
+second moments of the gradient
+(i.e. $\mathbf{m}_t=\mathbb{E}[\mathbf{g}_t]$ and
+$\mathbf{s}_t=\mathbb{E}[\mathbf{g}^2_t]$, respectively), ADAM
+performs an additional bias correction to account for the fact that we
+are estimating the first two moments of the gradient using a running
+average (denoted by the hats in the update rule below). The update
+rule for ADAM is given by (where multiplication and division are once
+again understood to be element-wise operations below)
+
+!bt
+\begin{align}
+\mathbf{g}_t &= \nabla_\theta E(\boldsymbol{\theta}) \\
+\mathbf{m}_t &= \beta_1 \mathbf{m}_{t-1} + (1-\beta_1) \mathbf{g}_t \nonumber \\
+\mathbf{s}_t &=\beta_2 \mathbf{s}_{t-1} +(1-\beta_2)\mathbf{g}_t^2 \nonumber \\
+\bm{\mathbf{m}}_t&={\mathbf{m}_t \over 1-\beta_1^t} \nonumber \\
+\bm{\mathbf{s}}_t &={\mathbf{s}_t \over1-\beta_2^t} \nonumber \\
+\boldsymbol{\theta}_{t+1}&=\boldsymbol{\theta}_t - \eta_t { \bm{\mathbf{m}}_t \over \sqrt{\bm{\mathbf{s}}_t} +\epsilon}, \nonumber \\
+\end{align}
+!et
+
+where $\beta_1$ and $\beta_2$ set the memory lifetime of the first and
+second moment and are typically taken to be $0.9$ and $0.99$
+respectively, and $\eta$ and $\epsilon$ are identical to RMSprop.
+
+Like in RMSprop, the effective step size of a parameter depends on the
+magnitude of its gradient squared.  To understand this better, let us
+rewrite this expression in terms of the variance
+$\boldsymbol{\sigma}_t^2 = \bm{\mathbf{s}}_t -
+(\bm{\mathbf{m}}_t)^2$. Consider a single parameter $\theta_t$. The
+update rule for this parameter is given by
 
 !bt
 \[
-\widehat{\mathrm{Bias}}(\widehat \theta,\theta) = (n-1)\left( - \widehat{\theta} + \frac{1}{n}\sum_{i=1}^{n} \widehat \theta_i \right) \qquad \text{and} \qquad \widehat{\sigma}^2_{\widehat{\theta} } = \frac{n-1}{n}\sum_{i=1}^{n}( \widehat{\theta}_i - \frac{1}{n}\sum_{j=1}^{n}\widehat \theta_j )^2.
+\Delta \theta_{t+1}= -\eta_t { \bm{m}_t \over \sqrt{\sigma_t^2 +  m_t^2 }+\epsilon}.
 \]
 !et
 
 
+===== Algorithms and codes for Adagrad, RMSprop and Adam =====
 
-=====  Jackknife code example =====
+The algorithms we have implemented are well described in the text by "Goodfellow, Bengio and Courville, chapter 8":"https://www.deeplearningbook.org/contents/optimization.html".
+
+The codes which implement these algorithms are discussed after our presentation of automatic differentiation.
+
+
+
+===== Practical tips =====
+
+* _Randomize the data when making mini-batches_. It is always important to randomly shuffle the data when forming mini-batches. Otherwise, the gradient descent method can fit spurious correlations resulting from the order in which data is presented.
+
+* _Transform your inputs_. Learning becomes difficult when our landscape has a mixture of steep and flat directions. One simple trick for minimizing these situations is to standardize the data by subtracting the mean and normalizing the variance of input variables. Whenever possible, also decorrelate the inputs. To understand why this is helpful, consider the case of linear regression. It is easy to show that for the squared error cost function, the Hessian of the cost function is just the correlation matrix between the inputs. Thus, by standardizing the inputs, we are ensuring that the landscape looks homogeneous in all directions in parameter space. Since most deep networks can be viewed as linear transformations followed by a non-linearity at each layer, we expect this intuition to hold beyond the linear case.
+
+* _Monitor the out-of-sample performance._ Always monitor the performance of your model on a validation set (a small portion of the training data that is held out of the training process to serve as a proxy for the test set. If the validation error starts increasing, then the model is beginning to overfit. Terminate the learning process. This *early stopping* significantly improves performance in many settings.
+	
+* _Adaptive optimization methods don't always have good generalization._ Recent studies have shown that adaptive methods such as ADAM, RMSPorp, and AdaGrad tend to have poor generalization compared to SGD or SGD with momentum, particularly in the high-dimensional limit (i.e. the number of parameters exceeds the number of data points). Although it is not clear at this stage why these methods perform so well in training deep neural networks, simpler procedures like properly-tuned SGD may work as well or better in these applications.
+
+Geron's text, see chapter 11, has several interesting discussions.
+
+
+
+
+===== Automatic differentiation =====
+
+"Automatic differentiation (AD)":"https://en.wikipedia.org/wiki/Automatic_differentiation", 
+also called algorithmic
+differentiation or computational differentiation,is a set of
+techniques to numerically evaluate the derivative of a function
+specified by a computer program. AD exploits the fact that every
+computer program, no matter how complicated, executes a sequence of
+elementary arithmetic operations (addition, subtraction,
+multiplication, division, etc.) and elementary functions (exp, log,
+sin, cos, etc.). By applying the chain rule repeatedly to these
+operations, derivatives of arbitrary order can be computed
+automatically, accurately to working precision, and using at most a
+small constant factor more arithmetic operations than the original
+program.
+
+Automatic differentiation is neither:
+
+* Symbolic differentiation, nor
+* Numerical differentiation (the method of finite differences).
+
+Symbolic differentiation can lead to inefficient code and faces the
+difficulty of converting a computer program into a single expression,
+while numerical differentiation can introduce round-off errors in the
+discretization process and cancellation
+
+
+
+Python has tools for so-called _automatic differentiation_.
+Consider the following example
+!bt
+\[
+f(x) = \sin\left(2\pi x + x^2\right)
+\]
+!et
+which has the following derivative
+!bt
+\[
+f'(x) = \cos\left(2\pi x + x^2\right)\left(2\pi + 2x\right) 
+\]
+!et
+Using _autograd_ we have
+
 !bc pycod
-from numpy import *
-from numpy.random import randint, randn
-from time import time
+import autograd.numpy as np
 
-def jackknife(data, stat):
-    n = len(data);t = zeros(n); inds = arange(n); t0 = time()
-    ## 'jackknifing' by leaving out an observation for each i                                                                                                                      
-    for i in range(n):
-        t[i] = stat(delete(data,i) )
+# To do elementwise differentiation:
+from autograd import elementwise_grad as egrad 
 
-    # analysis                                                                                                                                                                     
-    print("Runtime: %g sec" % (time()-t0)); print("Jackknife Statistics :")
-    print("original           bias      std. error")
-    print("%8g %14g %15g" % (stat(data),(n-1)*mean(t)/n, (n*var(t))**.5))
-
-    return t
+# To plot:
+import matplotlib.pyplot as plt 
 
 
-# Returns mean of data samples                                                                                                                                                     
-def stat(data):
-    return mean(data)
+def f(x):
+    return np.sin(2*np.pi*x + x**2)
 
+def f_grad_analytic(x):
+    return np.cos(2*np.pi*x + x**2)*(2*np.pi + 2*x)
 
-mu, sigma = 100, 15
-datapoints = 10000
-x = mu + sigma*random.randn(datapoints)
-# jackknife returns the data sample                                                                                                                                                
-t = jackknife(x, stat)
+# Do the comparison:
+x = np.linspace(0,1,1000)
 
+f_grad = egrad(f)
+
+computed = f_grad(x)
+analytic = f_grad_analytic(x)
+
+plt.title('Derivative computed from Autograd compared with the analytical derivative')
+plt.plot(x,computed,label='autograd')
+plt.plot(x,analytic,label='analytic')
+
+plt.xlabel('x')
+plt.ylabel('y')
+plt.legend()
+
+plt.show()
+
+print("The max absolute difference is: %g"%(np.max(np.abs(computed - analytic))))
+!ec
+
+ 
+===== Using autograd =====
+
+Here we
+experiment with what kind of functions Autograd is capable
+of finding the gradient of. The following Python functions are just
+meant to illustrate what Autograd can do, but please feel free to
+experiment with other, possibly more complicated, functions as well.
+
+!bc pycod
+import autograd.numpy as np
+from autograd import grad
+
+def f1(x):
+    return x**3 + 1
+
+f1_grad = grad(f1)
+
+# Remember to send in float as argument to the computed gradient from Autograd!
+a = 1.0
+
+# See the evaluated gradient at a using autograd:
+print("The gradient of f1 evaluated at a = %g using autograd is: %g"%(a,f1_grad(a)))
+
+# Compare with the analytical derivative, that is f1'(x) = 3*x**2 
+grad_analytical = 3*a**2
+print("The gradient of f1 evaluated at a = %g by finding the analytic expression is: %g"%(a,grad_analytical))
 !ec
 
 
 
-===== Resampling methods: Bootstrap =====
+===== Autograd with more complicated functions =====
 
-Bootstrapping is a nonparametric approach to statistical inference
-that substitutes computation for more traditional distributional
-assumptions and asymptotic results. Bootstrapping offers a number of
-advantages: 
-o The bootstrap is quite general, although there are some cases in which it fails.  
-o Because it does not require distributional assumptions (such as normally distributed errors), the bootstrap can provide more accurate inferences when the data are not well behaved or when the sample size is small.  
-o It is possible to apply the bootstrap to statistics with sampling distributions that are difficult to derive, even asymptotically. 
-o It is relatively simple to apply the bootstrap to complex data-collection plans (such as stratified and clustered samples).
+To differentiate with respect to two (or more) arguments of a Python
+function, Autograd need to know at which variable the function if
+being differentiated with respect to.
 
-
-
-
-===== Resampling methods: Bootstrap background =====
-
-Since $\widehat{\theta} = \widehat{\theta}(\hat{X})$ is a function of random variables,
-$\widehat{\theta}$ itself must be a random variable. Thus it has
-a pdf, call this function $p(\hat{t})$. The aim of the bootstrap is to
-estimate $p(\hat{t})$ by the relative frequency of
-$\widehat{\theta}$. You can think of this as using a histogram
-in the place of $p(\hat{t})$. If the relative frequency closely
-resembles $p(\vec{t})$, then using numerics, it is straight forward to
-estimate all the interesting parameters of $p(\hat{t})$ using point
-estimators.  
-
-
-
-===== Resampling methods: More Bootstrap background =====
-
-In the case that $\widehat{\theta}$ has
-more than one component, and the components are independent, we use the
-same estimator on each component separately.  If the probability
-density function of $X_i$, $p(x)$, had been known, then it would have
-been straight forward to do this by: 
-o Drawing lots of numbers from $p(x)$, suppose we call one such set of numbers $(X_1^*, X_2^*, \cdots, X_n^*)$. 
-o Then using these numbers, we could compute a replica of $\widehat{\theta}$ called $\widehat{\theta}^*$. 
-
-By repeated use of (1) and (2), many
-estimates of $\widehat{\theta}$ could have been obtained. The
-idea is to use the relative frequency of $\widehat{\theta}^*$
-(think of a histogram) as an estimate of $p(\hat{t})$.
-
-
-===== Resampling methods: Bootstrap approach =====
-
-But
-unless there is enough information available about the process that
-generated $X_1,X_2,\cdots,X_n$, $p(x)$ is in general
-unknown. Therefore, "Efron in 1979":"https://projecteuclid.org/euclid.aos/1176344552"  asked the
-question: What if we replace $p(x)$ by the relative frequency
-of the observation $X_i$; if we draw observations in accordance with
-the relative frequency of the observations, will we obtain the same
-result in some asymptotic sense? The answer is yes.
-
-
-Instead of generating the histogram for the relative
-frequency of the observation $X_i$, just draw the values
-$(X_1^*,X_2^*,\cdots,X_n^*)$ with replacement from the vector
-$\hat{X}$. 
-
-
-===== Resampling methods: Bootstrap steps =====
-
-The independent bootstrap works like this: 
-
-o Draw with replacement $n$ numbers for the observed variables $\hat{x} = (x_1,x_2,\cdots,x_n)$. 
-o Define a vector $\hat{x}^*$ containing the values which were drawn from $\hat{x}$. 
-o Using the vector $\hat{x}^*$ compute $\widehat{\theta}^*$ by evaluating $\widehat \theta$ under the observations $\hat{x}^*$. 
-o Repeat this process $k$ times. 
-
-When you are done, you can draw a histogram of the relative frequency of $\widehat \theta^*$. This is your estimate of the probability distribution $p(t)$. Using this probability distribution you can estimate any statistics thereof. In principle you never draw the histogram of the relative frequency of $\widehat{\theta}^*$. Instead you use the estimators corresponding to the statistic of interest. For example, if you are interested in estimating the variance of $\widehat \theta$, apply the etsimator $\widehat \sigma^2$ to the values $\widehat \theta ^*$.
-
-
-
-===== Code example for the Bootstrap method =====
-
-The following code starts with a Gaussian distribution with mean value $\mu =100$ and variance $\sigma=15$. We use this to generate the data used in the bootstrap analysis. The bootstrap analysis returns a data set after a given number of bootstrap operations (as many as we have data points). This data set consists of estimated mean values for each bootstrap operation. The histogram generated by the bootstrap method shows that the distribution for these mean values is also a Gaussian, centered around the mean value $\mu=100$ but with standard deviation $\sigma/\sqrt{n}$, where $n$ is the number of bootstrap samples (in this case the same as the number of original data points). The value of the standard deviation is what we expect from the central limit theorem. 
 !bc pycod
+import autograd.numpy as np
+from autograd import grad
+def f2(x1,x2):
+    return 3*x1**3 + x2*(x1 - 5) + 1
 
-%matplotlib inline
+# By sending the argument 0, Autograd will compute the derivative w.r.t the first variable, in this case x1
+f2_grad_x1 = grad(f2,0)
 
-from numpy import *
-from numpy.random import randint, randn
-from time import time
-from scipy.stats import norm
+# ... and differentiate w.r.t x2 by sending 1 as an additional arugment to grad
+f2_grad_x2 = grad(f2,1)
+
+x1 = 1.0
+x2 = 3.0 
+
+print("Evaluating at x1 = %g, x2 = %g"%(x1,x2))
+print("-"*30)
+
+# Compare with the analytical derivatives:
+
+# Derivative of f2 w.r.t x1 is: 9*x1**2 + x2:
+f2_grad_x1_analytical = 9*x1**2 + x2
+
+# Derivative of f2 w.r.t x2 is: x1 - 5:
+f2_grad_x2_analytical = x1 - 5
+
+# See the evaluated derivations:
+print("The derivative of f2 w.r.t x1: %g"%( f2_grad_x1(x1,x2) ))
+print("The analytical derivative of f2 w.r.t x1: %g"%( f2_grad_x1(x1,x2) ))
+
+print()
+
+print("The derivative of f2 w.r.t x2: %g"%( f2_grad_x2(x1,x2) ))
+print("The analytical derivative of f2 w.r.t x2: %g"%( f2_grad_x2(x1,x2) ))
+!ec
+
+Note that the grad function will not produce the true gradient of the function. The true gradient of a function with two or more variables will produce a vector, where each element is the function differentiated w.r.t a variable.
+
+
+
+=====  More complicated functions using the elements of their arguments directly =====
+
+!bc pycod
+import autograd.numpy as np
+from autograd import grad
+def f3(x): # Assumes x is an array of length 5 or higher
+    return 2*x[0] + 3*x[1] + 5*x[2] + 7*x[3] + 11*x[4]**2
+
+f3_grad = grad(f3)
+
+x = np.linspace(0,4,5)
+
+# Print the computed gradient:
+print("The computed gradient of f3 is: ", f3_grad(x))
+
+# The analytical gradient is: (2, 3, 5, 7, 22*x[4])
+f3_grad_analytical = np.array([2, 3, 5, 7, 22*x[4]])
+
+# Print the analytical gradient:
+print("The analytical gradient of f3 is: ", f3_grad_analytical)
+!ec
+
+Note that in this case, when sending an array as input argument, the
+output from Autograd is another array. This is the true gradient of
+the function, as opposed to the function in the previous example. By
+using arrays to represent the variables, the output from Autograd
+might be easier to work with, as the output is closer to what one
+could expect form a gradient-evaluting function.
+
+ 
+===== Functions using mathematical functions from Numpy =====
+
+!bc pycod
+import autograd.numpy as np
+from autograd import grad
+def f4(x):
+    return np.sqrt(1+x**2) + np.exp(x) + np.sin(2*np.pi*x)
+
+f4_grad = grad(f4)
+
+x = 2.7
+
+# Print the computed derivative:
+print("The computed derivative of f4 at x = %g is: %g"%(x,f4_grad(x)))
+
+# The analytical derivative is: x/sqrt(1 + x**2) + exp(x) + cos(2*pi*x)*2*pi
+f4_grad_analytical = x/np.sqrt(1 + x**2) + np.exp(x) + np.cos(2*np.pi*x)*2*np.pi
+
+# Print the analytical gradient:
+print("The analytical gradient of f4 at x = %g is: %g"%(x,f4_grad_analytical))
+!ec
+
+
+
+===== More autograd =====
+
+!bc pycod
+import autograd.numpy as np
+from autograd import grad
+def f5(x):
+    if x >= 0:
+        return x**2
+    else:
+        return -3*x + 1
+
+f5_grad = grad(f5)
+
+x = 2.7
+
+# Print the computed derivative:
+print("The computed derivative of f5 at x = %g is: %g"%(x,f5_grad(x)))
+!ec
+
+
+
+===== And  with loops =====
+
+!bc pycod
+import autograd.numpy as np
+from autograd import grad
+def f6_for(x):
+    val = 0
+    for i in range(10):
+        val = val + x**i
+    return val
+
+def f6_while(x):
+    val = 0
+    i = 0
+    while i < 10:
+        val = val + x**i
+        i = i + 1
+    return val
+
+f6_for_grad = grad(f6_for)
+f6_while_grad = grad(f6_while)
+
+x = 0.5
+
+# Print the computed derivaties of f6_for and f6_while
+print("The computed derivative of f6_for at x = %g is: %g"%(x,f6_for_grad(x)))
+print("The computed derivative of f6_while at x = %g is: %g"%(x,f6_while_grad(x)))
+!ec
+!bc pycod
+import autograd.numpy as np
+from autograd import grad
+# Both of the functions are implementation of the sum: sum(x**i) for i = 0, ..., 9
+# The analytical derivative is: sum(i*x**(i-1)) 
+f6_grad_analytical = 0
+for i in range(10):
+    f6_grad_analytical += i*x**(i-1)
+
+print("The analytical derivative of f6 at x = %g is: %g"%(x,f6_grad_analytical))
+!ec
+
+
+===== Using recursion =====
+!bc pycod
+import autograd.numpy as np
+from autograd import grad
+
+def f7(n): # Assume that n is an integer
+    if n == 1 or n == 0:
+        return 1
+    else:
+        return n*f7(n-1)
+
+f7_grad = grad(f7)
+
+n = 2.0
+
+print("The computed derivative of f7 at n = %d is: %g"%(n,f7_grad(n)))
+
+# The function f7 is an implementation of the factorial of n.
+# By using the product rule, one can find that the derivative is:
+
+f7_grad_analytical = 0
+for i in range(int(n)-1):
+    tmp = 1
+    for k in range(int(n)-1):
+        if k != i:
+            tmp *= (n - k)
+    f7_grad_analytical += tmp
+
+print("The analytical derivative of f7 at n = %d is: %g"%(n,f7_grad_analytical))
+
+!ec
+Note that if n is equal to zero or one, Autograd will give an error message. This message appears when the output is independent on input.
+
+
+===== Unsupported functions =====
+Autograd supports many features. However, there are some functions that is not supported (yet) by Autograd.
+
+Assigning a value to the variable being differentiated with respect to
+!bc pycod
+import autograd.numpy as np
+from autograd import grad
+def f8(x): # Assume x is an array
+    x[2] = 3
+    return x*2
+
+f8_grad = grad(f8)
+
+x = 8.4
+
+print("The derivative of f8 is:",f8_grad(x))
+!ec
+Here, Autograd tells us that an 'ArrayBox' does not support item assignment. The item assignment is done when the program tries to assign x[2] to the value 3. However, Autograd has implemented the computation of the derivative such that this assignment is not possible.
+
+
+===== The syntax a.dot(b) when finding the dot product =====
+!bc pycod
+import autograd.numpy as np
+from autograd import grad
+def f9(a): # Assume a is an array with 2 elements
+    b = np.array([1.0,2.0])
+    return a.dot(b)
+
+f9_grad = grad(f9)
+
+x = np.array([1.0,0.0])
+
+print("The derivative of f9 is:",f9_grad(x))
+!ec
+
+Here we are told that the 'dot' function does not belong to Autograd's
+version of a Numpy array.  To overcome this, an alternative syntax
+which also computed the dot product can be used:
+
+!bc pycod
+import autograd.numpy as np
+from autograd import grad
+def f9_alternative(x): # Assume a is an array with 2 elements
+    b = np.array([1.0,2.0])
+    return np.dot(x,b) # The same as x_1*b_1 + x_2*b_2
+
+f9_alternative_grad = grad(f9_alternative)
+
+x = np.array([3.0,0.0])
+
+print("The gradient of f9 is:",f9_alternative_grad(x))
+
+# The analytical gradient of the dot product of vectors x and b with two elements (x_1,x_2) and (b_1, b_2) respectively
+# w.r.t x is (b_1, b_2).
+!ec
+
+
+===== Recommended to avoid =====
+The documentation recommends to avoid inplace operations such as
+!bc pycod
+a += b
+a -= b
+a*= b
+a /=b
+!ec
+
+
+
+=====  Using Autograd with OLS =====
+
+We conclude the part on optmization by showing how we can make codes
+for linear regression and logistic regression using _autograd_. The
+first example shows results with ordinary leats squares.
+
+!bc pycod
+# Using Autograd to calculate gradients for OLS
+from random import random, seed
+import numpy as np
+import autograd.numpy as np
 import matplotlib.pyplot as plt
+from autograd import grad
 
-# Returns mean of bootstrap samples                                                                                                                                                
-def stat(data):
-    return mean(data)
+def CostOLS(beta):
+    return (1.0/n)*np.sum((y-X @ beta)**2)
 
-# Bootstrap algorithm                                                                                                                                                              
-def bootstrap(data, statistic, R):
-    t = zeros(R); n = len(data); inds = arange(n); t0 = time()
+n = 100
+x = 2*np.random.rand(n,1)
+y = 4+3*x+np.random.randn(n,1)
 
-    # non-parametric bootstrap                                                                                                                                                     
-    for i in range(R):
-        t[i] = statistic(data[randint(0,n,n)])
+X = np.c_[np.ones((n,1)), x]
+XT_X = X.T @ X
+theta_linreg = np.linalg.pinv(XT_X) @ (X.T @ y)
+print("Own inversion")
+print(theta_linreg)
+# Hessian matrix
+H = (2.0/n)* XT_X
+EigValues, EigVectors = np.linalg.eig(H)
+print(f"Eigenvalues of Hessian Matrix:{EigValues}")
 
-    # analysis                                                                                                                                                                     
-    print("Runtime: %g sec" % (time()-t0)); print("Bootstrap Statistics :")
-    print("original           bias      std. error")
-    print("%8g %8g %14g %15g" % (statistic(data), std(data),\
-                             mean(t), \
-                             std(t)))
-    return t
+theta = np.random.randn(2,1)
+eta = 1.0/np.max(EigValues)
+Niterations = 1000
+# define the gradient
+training_gradient = grad(CostOLS)
 
+for iter in range(Niterations):
+    gradients = training_gradient(theta)
+    theta -= eta*gradients
+print("theta from own gd")
+print(theta)
 
-mu, sigma = 100, 15
-datapoints = 10000
-x = mu + sigma*random.randn(datapoints)
-# bootstrap returns the data sample                                                                                                          t = bootstrap(x, stat, datapoints)
-# the histogram of the bootstrapped  data  
-t = bootstrap(x, stat, datapoints)
-# the histogram of the bootstrapped  data                                            
-n, binsboot, patches = plt.hist(t, bins=50, density='true',histtype='bar', color='red', alpha=0.75)
+xnew = np.array([[0],[2]])
+Xnew = np.c_[np.ones((2,1)), xnew]
+ypredict = Xnew.dot(theta)
+ypredict2 = Xnew.dot(theta_linreg)
 
-# add a 'best fit' line                                                                                                                                                          
-y = norm.pdf( binsboot, mean(t), std(t))
-lt = plt.plot(binsboot, y, 'r--', linewidth=1)
-plt.xlabel('Smarts')
-plt.ylabel('Probability')
-plt.axis([99.5, 100.6, 0, 3.0])
-plt.grid(True)
-
+plt.plot(xnew, ypredict, "r-")
+plt.plot(xnew, ypredict2, "b-")
+plt.plot(x, y ,'ro')
+plt.axis([0,2.0,0, 15.0])
+plt.xlabel(r'$x$')
+plt.ylabel(r'$y$')
+plt.title(r'Random numbers ')
 plt.show()
 
 !ec
 
 
 
-===== Resampling methods: Blocking  =====
-
-The blocking method was made popular by "Flyvbjerg and Pedersen (1989)":"https://aip.scitation.org/doi/10.1063/1.457480"
-and has become one of the standard ways to estimate
-$V(\widehat{\theta})$ for exactly one $\widehat{\theta}$, namely
-$\widehat{\theta} = \overline{X}$. 
-
-Assume $n = 2^d$ for some integer $d>1$ and $X_1,X_2,\cdots, X_n$ is a stationary time series to begin with. 
-Moreover, assume that the time series is asymptotically uncorrelated. We switch to vector notation by arranging $X_1,X_2,\cdots,X_n$ in an $n$-tuple. Define:
-!bt
-\begin{align*}
-\hat{X} = (X_1,X_2,\cdots,X_n).
-\end{align*}
-!et
-
-The strength of the blocking method is when the number of
-observations, $n$ is large. For large $n$, the complexity of dependent
-bootstrapping scales poorly, but the blocking method does not,
-moreover, it becomes more accurate the larger $n$ is.
-
-
-===== Blocking Transformations =====
- We now define
-blocking transformations. The idea is to take the mean of subsequent
-pair of elements from $\vec{X}$ and form a new vector
-$\vec{X}_1$. Continuing in the same way by taking the mean of
-subsequent pairs of elements of $\vec{X}_1$ we obtain $\vec{X}_2$, and
-so on. 
-Define $\vec{X}_i$ recursively by:
-
-!bt 
-\begin{align} 
-(\vec{X}_0)_k &\equiv (\vec{X})_k \nonumber \\
-(\vec{X}_{i+1})_k &\equiv \frac{1}{2}\Big( (\vec{X}_i)_{2k-1} +
-(\vec{X}_i)_{2k} \Big) \qquad \text{for all} \qquad 1 \leq i \leq d-1
-\end{align} 
-!et 
-
-The quantity $\vec{X}_k$ is
-subject to $k$ _blocking transformations_.  We now have $d$ vectors
-$\vec{X}_0, \vec{X}_1,\cdots,\vec X_{d-1}$ containing the subsequent
-averages of observations. It turns out that if the components of
-$\vec{X}$ is a stationary time series, then the components of
-$\vec{X}_i$ is a stationary time series for all $0 \leq i \leq d-1$
-
-We can then compute the autocovariance, the variance, sample mean, and
-number of observations for each $i$. 
-Let $\gamma_i, \sigma_i^2,
-\overline{X}_i$ denote the autocovariance, variance and average of the
-elements of $\vec{X}_i$ and let $n_i$ be the number of elements of
-$\vec{X}_i$. It follows by induction that $n_i = n/2^i$. 
-
-
-===== Blocking Transformations =====
-
-Using the
-definition of the blocking transformation and the distributive
-property of the covariance, it is clear that since $h =|i-j|$
-we can define
-!bt
-\begin{align}
-\gamma_{k+1}(h) &= cov\left( ({X}_{k+1})_{i}, ({X}_{k+1})_{j} \right) \nonumber \\
-&=  \frac{1}{4}cov\left( ({X}_{k})_{2i-1} + ({X}_{k})_{2i}, ({X}_{k})_{2j-1} + ({X}_{k})_{2j} \right) \nonumber \\
-&=  \frac{1}{2}\gamma_{k}(2h) + \frac{1}{2}\gamma_k(2h+1) \hspace{0.1cm} \mathrm{h = 0} \\
-&=\frac{1}{4}\gamma_k(2h-1) + \frac{1}{2}\gamma_k(2h) + \frac{1}{4}\gamma_k(2h+1) \quad \mathrm{else}
-\end{align}
-!et
-
-The quantity $\hat{X}$ is asymptotic uncorrelated by assumption, $\hat{X}_k$ is also asymptotic uncorrelated. Let's turn our attention to the variance of the sample mean $V(\overline{X})$. 
-
-
-===== Blocking Transformations, getting there =====
-We have
-!bt
-\begin{align}
-V(\overline{X}_k) = \frac{\sigma_k^2}{n_k} + \underbrace{\frac{2}{n_k} \sum_{h=1}^{n_k-1}\left( 1 - \frac{h}{n_k} \right)\gamma_k(h)}_{\equiv e_k} = \frac{\sigma^2_k}{n_k} + e_k \quad \text{if} \quad \gamma_k(0) = \sigma_k^2. 
-\end{align}
-!et
-The term $e_k$ is called the _truncation error_: 
-!bt
-\begin{equation}
-e_k = \frac{2}{n_k} \sum_{h=1}^{n_k-1}\left( 1 - \frac{h}{n_k} \right)\gamma_k(h). 
-\end{equation}
-!et
-We can show that $V(\overline{X}_i) = V(\overline{X}_j)$ for all $0 \leq i \leq d-1$ and $0 \leq j \leq d-1$. 
-
-
-===== Blocking Transformations, final expressions =====
-
-We can then wrap up
-!bt
-\begin{align}
-n_{j+1} \overline{X}_{j+1}  &= \sum_{i=1}^{n_{j+1}} (\hat{X}_{j+1})_i =  \frac{1}{2}\sum_{i=1}^{n_{j}/2} (\hat{X}_{j})_{2i-1} + (\hat{X}_{j})_{2i} \nonumber \\
-&= \frac{1}{2}\left[ (\hat{X}_j)_1 + (\hat{X}_j)_2 + \cdots + (\hat{X}_j)_{n_j} \right] = \underbrace{\frac{n_j}{2}}_{=n_{j+1}} \overline{X}_j = n_{j+1}\overline{X}_j. 
-\end{align}
-!et
-By repeated use of this equation we get $V(\overline{X}_i) = V(\overline{X}_0) = V(\overline{X})$ for all $0 \leq i \leq d-1$. This has the consequence that
-!bt
-\begin{align}
-V(\overline{X}) = \frac{\sigma_k^2}{n_k} + e_k \qquad \text{for all} \qquad 0 \leq k \leq d-1. \label{eq:convergence}
-\end{align}
-!et
-
-Flyvbjerg and Petersen demonstrated that the sequence
-$\{e_k\}_{k=0}^{d-1}$ is decreasing, and conjecture that the term
-$e_k$ can be made as small as we would like by making $k$ (and hence
-$d$) sufficiently large. The sequence is decreasing (Master of Science thesis by Marius Jonsson, UiO 2018).
-It means we can apply blocking transformations until
-$e_k$ is sufficiently small, and then estimate $V(\overline{X})$ by
-$\widehat{\sigma}^2_k/n_k$. 
-
-
-For an elegant solution and proof of the blocking method, see the recent article of "Marius Jonsson (former MSc student of the Computational Physics group)":"https://journals.aps.org/pre/abstract/10.1103/PhysRevE.98.043304".
-
-
-
-
-======= Boltzmann Machines =======
-
-Why use a generative model rather than the more well known discriminative deep neural networks (DNN)? 
-
-* Discriminitave methods have several limitations: They are mainly supervised learning methods, thus requiring labeled data. And there are tasks they cannot accomplish, like drawing new examples from an unknown probability distribution.
-
-* A generative model can learn to represent and sample from a probability distribution. The core idea is to learn a parametric model of the probability distribution from which the training data was drawn. As an example
-
-  o A model for images could learn to draw new examples of cats and dogs, given a training dataset of images of cats and dogs.
-  o Generate a sample of an ordered or disordered Ising model phase, having been given samples of such phases.
-  o Model the trial function for Monte Carlo calculations
-
- o Both use gradient-descent based learning procedures for minimizing cost functions
- o Energy based models don't use backpropagation and automatic differentiation for computing gradients, instead turning to Markov Chain Monte Carlo methods.
- o DNNs often have several hidden layers. A restricted Boltzmann machine has only one hidden layer, however several RBMs can be stacked to make up Deep Belief Networks, of which they constitute the building blocks.
-
-History: The RBM was developed by amongst others Geoffrey Hinton, called by some the "Godfather of Deep Learning", working with the University of Toronto and Google.
-
-
-
-
-A BM is what we would call an undirected probabilistic graphical model
-with stochastic continuous or discrete units.
-
-
-It is interpreted as a stochastic recurrent neural network where the
-state of each unit(neurons/nodes) depends on the units it is connected
-to. The weights in the network represent thus the strength of the
-interaction between various units/nodes.
-
-
-It turns into a Hopfield network if we choose deterministic rather
-than stochastic units. In contrast to a Hopfield network, a BM is a
-so-called generative model. It allows us to generate new samples from
-the learned distribution.
-
-
-
-A standard BM network is divided into a set of observable and visible units $\hat{x}$ and a set of unknown hidden units/nodes $\hat{h}$.
-
-
-
-Additionally there can be bias nodes for the hidden and visible layers. These biases are normally set to $1$.
-
-
-
-BMs are stackable, meaning they cwe can train a BM which serves as input to another BM. We can construct deep networks for learning complex PDFs. The layers can be trained one after another, a feature which makes them popular in deep learning
-
-
-However, they are often hard to train. This leads to the introduction of so-called restricted BMs, or RBMS.
-Here we take away all lateral connections between nodes in the visible layer as well as connections between nodes in the hidden layer. The network is illustrated in the figure below.
-
-
-
-
-
-===== The network =====
-
-_The network layers_:
-  o A function $\mathbf{x}$ that represents the visible layer, a vector of $M$ elements (nodes). This layer represents both what the RBM might be given as training input, and what we want it to be able to reconstruct. This might for example be the pixels of an image, the spin values of the Ising model, or coefficients representing speech.
-  o The function $\mathbf{h}$ represents the hidden, or latent, layer. A vector of $N$ elements (nodes). Also called "feature detectors".
-
-The goal of the hidden layer is to increase the model's expressive power. We encode complex interactions between visible variables by introducing additional, hidden variables that interact with visible degrees of freedom in a simple manner, yet still reproduce the complex correlations between visible degrees in the data once marginalized over (integrated out).
-
-Examples of this trick being employed in physics: 
-  o The Hubbard-Stratonovich transformation
-  o The introduction of ghost fields in gauge theory
-  o Shadow wave functions in Quantum Monte Carlo simulations
-_The network parameters, to be optimized/learned_:
-  o $\mathbf{a}$ represents the visible bias, a vector of same length as $\mathbf{x}$.
-  o $\mathbf{b}$ represents the hidden bias, a vector of same lenght as $\mathbf{h}$.
-  o $W$ represents the interaction weights, a matrix of size $M\times N$.
-
-
-
-=== Joint distribution ===
-The restricted Boltzmann machine is described by a Bolztmann distribution
-!bt
-\begin{align}
-	P_{rbm}(\mathbf{x},\mathbf{h}) = \frac{1}{Z} e^{-\frac{1}{T_0}E(\mathbf{x},\mathbf{h})},
-\end{align}
-!et
-where $Z$ is the normalization constant or partition function, defined as 
-!bt
-\begin{align}
-	Z = \int \int e^{-\frac{1}{T_0}E(\mathbf{x},\mathbf{h})} d\mathbf{x} d\mathbf{h}.
-\end{align}
-!et
-It is common to ignore $T_0$ by setting it to one. 
-
-
-=== Network Elements, the energy function  ===
-
-The function $E(\mathbf{x},\mathbf{h})$ gives the _energy_ of a
-configuration (pair of vectors) $(\mathbf{x}, \mathbf{h})$. The lower
-the energy of a configuration, the higher the probability of it. This
-function also depends on the parameters $\mathbf{a}$, $\mathbf{b}$ and
-$W$. Thus, when we adjust them during the learning procedure, we are
-adjusting the energy function to best fit our problem.
-
-
-
-=== Defining different types of RBMs ===
-
-There are different variants of RBMs, and the differences lie in the types of visible and hidden units we choose as well as in the implementation of the energy function $E(\mathbf{x},\mathbf{h})$. The connection between the nodes in the two layers is given by the weights $w_{ij}$. 
-
- Binary-Binary RBM:
-
-RBMs were first developed using binary units in both the visible and hidden layer. The corresponding energy function is defined as follows:
-!bt
-\begin{align}
-	E(\mathbf{x}, \mathbf{h}) = - \sum_i^M x_i a_i- \sum_j^N b_j h_j - \sum_{i,j}^{M,N} x_i w_{ij} h_j,
-\end{align}
-!et
-where the binary values taken on by the nodes are most commonly 0 and 1.
-
- Gaussian-Binary RBM:
-
-Another varient is the RBM where the visible units are Gaussian while the hidden units remain binary:
-!bt
-\begin{align}
-	E(\mathbf{x}, \mathbf{h}) = \sum_i^M \frac{(x_i - a_i)^2}{2\sigma_i^2} - \sum_j^N b_j h_j - \sum_{i,j}^{M,N} \frac{x_i w_{ij} h_j}{\sigma_i^2}. 
-\end{align}
-!et
-
-
-
-o RBMs are Useful when we model continuous data (i.e., we wish $\mathbf{x}$ to be continuous)
-o Requires a smaller learning rate, since there's no upper bound to the value a component might take in the reconstruction
-
-Other types of units include:
- o Softmax and multinomial units
- o Gaussian visible and hidden units
- o Binomial units
- o Rectified linear units
-
-
-=== Cost function ===
-
-When working with a training dataset, the most common training approach is maximizing the log-likelihood of the training data. The log likelihood characterizes the log-probability of generating the observed data using our generative model. Using this method our cost function is chosen as the negative log-likelihood. The learning then consists of trying to find parameters that maximize the probability of the dataset, and is known as Maximum Likelihood Estimation (MLE).
-Denoting the parameters as $\bm{\theta} = a_1,...,a_M,b_1,...,b_N,w_{11},...,w_{MN}$, the log-likelihood is given by
-!bt
-\begin{align}
-	\mathcal{L}(\{ \theta_i \}) &= \langle \text{log} P_\theta(\bm{x}) \rangle_{data} \\
-	&= - \langle E(\bm{x}; \{ \theta_i\}) \rangle_{data} - \text{log} Z(\{ \theta_i\}),
-\end{align}
-!et
-where we used that the normalization constant does not depend on the data, $\langle \text{log} Z(\{ \theta_i\}) \rangle = \text{log} Z(\{ \theta_i\})$
-Our cost function is the negative log-likelihood, $\mathcal{C}(\{ \theta_i \}) = - \mathcal{L}(\{ \theta_i \})$
-
-=== Optimization / Training ===
-
-The training procedure of choice often is Stochastic Gradient Descent (SGD). It consists of a series of iterations where we update the parameters according to the equation
-!bt
-\begin{align}
-	\bm{\theta}_{k+1} = \bm{\theta}_k - \eta \nabla \mathcal{C} (\bm{\theta}_k)
-\end{align}
-!et
-at each $k$-th iteration. There are a range of variants of the algorithm which aim at making the learning rate $\eta$ more adaptive so the method might be more efficient while remaining stable.
-
-We now need the gradient of the cost function in order to minimize it. We find that
-!bt
-\begin{align}
-	\frac{\partial \mathcal{C}(\{ \theta_i\})}{\partial \theta_i}
-	&= \langle \frac{\partial E(\bm{x}; \theta_i)}{\partial \theta_i} \rangle_{data}
-	+ \frac{\partial \text{log} Z(\{ \theta_i\})}{\partial \theta_i} \\
-	&= \langle O_i(\bm{x}) \rangle_{data} - \langle O_i(\bm{x}) \rangle_{model},
-\end{align}
-!et
-where in order to simplify notation we defined the "operator"
-!bt
-\begin{align}
-	O_i(\bm{x}) = \frac{\partial E(\bm{x}; \theta_i)}{\partial \theta_i}, 
-\end{align}
-!et
-and used the statistical mechanics relationship between expectation values and the log-partition function:
-!bt
-\begin{align}
-	\langle O_i(\bm{x}) \rangle_{model} = \text{Tr} P_\theta(\bm{x})O_i(\bm{x}) = - \frac{\partial \text{log} Z(\{ \theta_i\})}{\partial \theta_i}.
-\end{align}
-!et
-
-The data-dependent term in the gradient is known as the positive phase
-of the gradient, while the model-dependent term is known as the
-negative phase of the gradient. The aim of the training is to lower
-the energy of configurations that are near observed data points
-(increasing their probability), and raising the energy of
-configurations that are far from observed data points (decreasing
-their probability).
-
-The gradient of the negative log-likelihood cost function of a Binary-Binary RBM is then
-!bt
-\begin{align}
-	\frac{\partial \mathcal{C} (w_{ij}, a_i, b_j)}{\partial w_{ij}} =& \langle x_i h_j \rangle_{data} - \langle x_i h_j \rangle_{model} \\
-	\frac{\partial \mathcal{C} (w_{ij}, a_i, b_j)}{\partial a_{ij}} =& \langle x_i \rangle_{data} - \langle x_i \rangle_{model} \\
-	\frac{\partial \mathcal{C} (w_{ij}, a_i, b_j)}{\partial b_{ij}} =& \langle h_i \rangle_{data} - \langle h_i \rangle_{model}. \\
-\end{align}
-!et
-To get the expectation values with respect to the *data*, we set the visible units to each of the observed samples in the training data, then update the hidden units according to the conditional probability found before. We then average over all samples in the training data to calculate expectation values with respect to the data. 
-
-
-
-
-=== Kullback-Leibler relative entropy ===
-
-When the goal of the training is to approximate a probability
-distribution, as it is in generative modeling, another relevant
-measure is the _Kullback-Leibler divergence_, also known as the
-relative entropy or Shannon entropy. It is a non-symmetric measure of the
-dissimilarity between two probability density functions $p$ and
-$q$. If $p$ is the unkown probability which we approximate with $q$,
-we can measure the difference by
-!bt
-\begin{align}
-	\text{KL}(p||q) = \int_{-\infty}^{\infty} p (\bm{x}) \log \frac{p(\bm{x})}{q(\bm{x})}  d\bm{x}.
-\end{align}
-!et
-
-Thus, the Kullback-Leibler divergence between the distribution of the
-training data $f(\bm{x})$ and the model distribution $p(\bm{x}|
-\bm{\theta})$ is
-
-!bt
-\begin{align}
-	\text{KL} (f(\bm{x})|| p(\bm{x}| \bm{\theta})) =& \int_{-\infty}^{\infty}
-	f (\bm{x}) \log \frac{f(\bm{x})}{p(\bm{x}| \bm{\theta})} d\bm{x} \\
-	=& \int_{-\infty}^{\infty} f(\bm{x}) \log f(\bm{x}) d\bm{x} - \int_{-\infty}^{\infty} f(\bm{x}) \log
-	p(\bm{x}| \bm{\theta}) d\bm{x} \\
-	%=& \mathbb{E}_{f(\bm{x})} (\log f(\bm{x})) - \mathbb{E}_{f(\bm{x})} (\log p(\bm{x}| \bm{\theta}))
-	=& \langle \log f(\bm{x}) \rangle_{f(\bm{x})} - \langle \log p(\bm{x}| \bm{\theta}) \rangle_{f(\bm{x})} \\
-	=& \langle \log f(\bm{x}) \rangle_{data} + \langle E(\bm{x}) \rangle_{data} + \log Z \\
-	=& \langle \log f(\bm{x}) \rangle_{data} + \mathcal{C}_{LL} .
-\end{align}
-!et
-
-The first term is constant with respect to $\bm{\theta}$ since $f(\bm{x})$ is independent of $\bm{\theta}$. Thus the Kullback-Leibler Divergence is minimal when the second term is minimal. The second term is the log-likelihood cost function, hence minimizing the Kullback-Leibler divergence is equivalent to maximizing the log-likelihood.
-
-
-To further understand generative models it is useful to study the
-gradient of the cost function which is needed in order to minimize it
-using methods like stochastic gradient descent. 
-
-The partition function is the generating function of
-expectation values, in particular there are mathematical relationships
-between expectation values and the log-partition function. In this
-case we have
-!bt
-\begin{align}
-	\langle \frac{ \partial E(\bm{x}; \theta_i) } { \partial \theta_i} \rangle_{model}
-	= \int p(\bm{x}| \bm{\theta}) \frac{ \partial E(\bm{x}; \theta_i) } { \partial \theta_i} d\bm{x} 
-	= -\frac{\partial \log Z(\theta_i)}{ \partial  \theta_i} .
-\end{align}
-!et
-
-Here $\langle \cdot \rangle_{model}$ is the expectation value over the model probability distribution $p(\bm{x}| \bm{\theta})$.
-
-===== Setting up for gradient descent calculations =====
-
-Using the previous relationship we can express the gradient of the cost function as
-
-!bt
-\begin{align}
-	\frac{\partial \mathcal{C}_{LL}}{\partial \theta_i}
-	=& \langle \frac{ \partial E(\bm{x}; \theta_i) } { \partial \theta_i} \rangle_{data} + \frac{\partial \log Z(\theta_i)}{ \partial  \theta_i} \\
-	=& \langle \frac{ \partial E(\bm{x}; \theta_i) } { \partial \theta_i} \rangle_{data} - \langle \frac{ \partial E(\bm{x}; \theta_i) } { \partial \theta_i} \rangle_{model} \\
-	%=& \langle O_i(\bm{x}) \rangle_{data} - \langle O_i(\bm{x}) \rangle_{model}
-\end{align}
-!et
-
-This expression shows that the gradient of the log-likelihood cost
-function is a _difference of moments_, with one calculated from
-the data and one calculated from the model. The data-dependent term is
-called the _positive phase_ and the model-dependent term is
-called the _negative phase_ of the gradient. We see now that
-minimizing the cost function results in lowering the energy of
-configurations $\bm{x}$ near points in the training data and
-increasing the energy of configurations not observed in the training
-data. That means we increase the model's probability of configurations
-similar to those in the training data.
-
-
-The gradient of the cost function also demonstrates why gradients of
-unsupervised, generative models must be computed differently from for
-those of for example FNNs. While the data-dependent expectation value
-is easily calculated based on the samples $\bm{x}_i$ in the training
-data, we must sample from the model in order to generate samples from
-which to caclulate the model-dependent term. We sample from the model
-by using MCMC-based methods. We can not sample from the model directly
-because the partition function $Z$ is generally intractable.
-
-As in supervised machine learning problems, the goal is also here to
-perform well on _unseen_ data, that is to have good
-generalization from the training data. The distribution $f(x)$ we
-approximate is not the _true_ distribution we wish to estimate,
-it is limited to the training data. Hence, in unsupervised training as
-well it is important to prevent overfitting to the training data. Thus
-it is common to add regularizers to the cost function in the same
-manner as we discussed for say linear regression.
-
-
-
-===== RBMs for the quantum many body problem =====
-
-The idea of applying RBMs to quantum many body problems was presented by G. Carleo and M. Troyer, working with ETH Zurich and Microsoft Research.
-
-Some of their motivation included
-
-* The wave function $\Psi$ is a monolithic mathematical quantity that contains all the information on a quantum state, be it a single particle or a complex molecule. In principle, an exponential amount of information is needed to fully encode a generic many-body quantum state.
-* There are still interesting open problems, including fundamental questions ranging from the dynamical properties of high-dimensional systems to the exact ground-state properties of strongly interacting fermions.
-* The difficulty lies in finding a general strategy to reduce the exponential complexity of the full many-body wave function down to its most essential features. That is
- o Dimensional reduction
- o Feature extraction
-* Among the most successful techniques to attack these challenges, artifical neural networks play a prominent role.
-* Want to understand whether an artifical neural network may adapt to describe a quantum system.
-
-
-Carleo and Troyer applied the RBM to the quantum mechanical spin lattice systems of the Ising model and Heisenberg model, with encouraging results. Our goal is to test the method on systems of moving particles. For the spin lattice systems it was natural to use a binary-binary RBM, with the nodes taking values of 1 and -1. For moving particles, on the other hand, we want the visible nodes to be continuous, representing position coordinates. Thus, we start by choosing a Gaussian-binary RBM, where the visible nodes are continuous and hidden nodes take on values of 0 or 1. If eventually we would like the hidden nodes to be continuous as well the rectified linear units seem like the most relevant choice.
-
-
-
-
-===== Representing the wave function =====
-
-The wavefunction should be a probability amplitude depending on
- $\bm{x}$. The RBM model is given by the joint distribution of
- $\bm{x}$ and $\bm{h}$
-
-!bt
-\begin{align}
-        F_{rbm}(\mathbf{x},\mathbf{h}) = \frac{1}{Z} e^{-\frac{1}{T_0}E(\mathbf{x},\mathbf{h})}.
-\end{align}
-!et
-
-To find the marginal distribution of $\bm{x}$ we set:
-
-!bt
-\begin{align}
-        F_{rbm}(\mathbf{x}) &= \sum_\mathbf{h} F_{rbm}(\mathbf{x}, \mathbf{h}) \\
-                                &= \frac{1}{Z}\sum_\mathbf{h} e^{-E(\mathbf{x}, \mathbf{h})}.
-\end{align}
-!et
-
-Now this is what we use to represent the wave function, calling it a neural-network quantum state (NQS)
-!bt
-\begin{align}
-        \Psi (\mathbf{X}) &= F_{rbm}(\mathbf{x}) \\
-        &= \frac{1}{Z}\sum_{\bm{h}} e^{-E(\mathbf{x}, \mathbf{h})} \\
-        &= \frac{1}{Z} \sum_{\{h_j\}} e^{-\sum_i^M \frac{(x_i - a_i)^2}{2\sigma^2} + \sum_j^N b_j h_j + \sum_\
-{i,j}^{M,N} \frac{x_i w_{ij} h_j}{\sigma^2}} \\
-        &= \frac{1}{Z} e^{-\sum_i^M \frac{(x_i - a_i)^2}{2\sigma^2}} \prod_j^N (1 + e^{b_j + \sum_i^M \frac{x\
-_i w_{ij}}{\sigma^2}}). \\
-\end{align}
-!et
-
-===== Choose the cost function =====
-
-Now we don't necessarily have training data (unless we generate it by using some other method). However, what we do have is the variational principle which allows us to obtain the ground state wave function by minimizing the expectation value of the energy of a trial wavefunction (corresponding to the untrained NQS). Similarly to the traditional variational Monte Carlo method then, it is the local energy we wish to minimize. The gradient to use for the stochastic gradient descent procedure is
-
-!bt
-\begin{align}
-	C_i = \frac{\partial \langle E_L \rangle}{\partial \theta_i}
-	= 2(\langle E_L \frac{1}{\Psi}\frac{\partial \Psi}{\partial \theta_i} \rangle - \langle E_L \rangle \langle \frac{1}{\Psi}\frac{\partial \Psi}{\partial \theta_i} \rangle ),
-\end{align}
-!et
-where the local energy is given by
-!bt
-\begin{align}
-	E_L = \frac{1}{\Psi} \hat{\mathbf{H}} \Psi.
-\end{align}
-!et
-
-
-
-=== Mathematical details ===
-
-Because we are restricted to potential functions which are positive it
-is convenient to express them as exponentials, so that
-
-!bt
-\begin{align}
-	\phi_C (\bm{x}_C) = e^{-E_C(\bm{x}_C)}
-\end{align}
-!et
-
-where $E(\bm{x}_C)$ is called an *energy function*, and the
-exponential representation is the *Boltzmann distribution*. The
-joint distribution is defined as the product of potentials.
-
-The joint distribution of the random variables is then
-
-!bt
-\begin{align}
-	p(\bm{x}) =& \frac{1}{Z} \prod_C \phi_C (\bm{x}_C) \nonumber \\
-	=& \frac{1}{Z} \prod_C e^{-E_C(\bm{x}_C)} \nonumber \\
-	=& \frac{1}{Z} e^{-\sum_C E_C(\bm{x}_C)} \nonumber \\
-	=& \frac{1}{Z} e^{-E(\bm{x})}.
-\end{align} 
-!et
-!bt
-\begin{align}
-	p_{BM}(\bm{x}, \bm{h}) = \frac{1}{Z_{BM}} e^{-\frac{1}{T}E_{BM}(\bm{x}, \bm{h})} ,
-\end{align}
-!et
-
-with the partition function 
-!bt
-\begin{align}
-	Z_{BM} = \int \int e^{-\frac{1}{T} E_{BM}(\tilde{\bm{x}}, \tilde{\bm{h}})} d\tilde{\bm{x}} d\tilde{\bm{h}} .
-\end{align}
-!et
-
-$T$ is a physics-inspired parameter named temperature and will be assumed to be 1 unless otherwise stated. The energy function of the Boltzmann machine determines the interactions between the nodes and is defined  
-
-!bt
-\begin{align}
-	E_{BM}(\bm{x}, \bm{h}) =& - \sum_{i, k}^{M, K} a_i^k \alpha_i^k (x_i)
-	- \sum_{j, l}^{N, L} b_j^l \beta_j^l (h_j) 
-	- \sum_{i,j,k,l}^{M,N,K,L} \alpha_i^k (x_i) w_{ij}^{kl} \beta_j^l (h_j) \nonumber \\
-	&- \sum_{i, m=i+1, k}^{M, M, K} \alpha_i^k (x_i) v_{im}^k \alpha_m^k (x_m)
-	- \sum_{j,n=j+1,l}^{N,N,L} \beta_j^l (h_j) u_{jn}^l \beta_n^l (h_n).
-\end{align}
-!et
-
-Here $\alpha_i^k (x_i)$ and $\beta_j^l (h_j)$ are one-dimensional
-transfer functions or mappings from the given input value to the
-desired feature value. They can be arbitrary functions of the input
-variables and are independent of the parameterization (parameters
-referring to weight and biases), meaning they are not affected by
-training of the model. The indices $k$ and $l$ indicate that there can
-be multiple transfer functions per variable.  Furthermore, $a_i^k$ and
-$b_j^l$ are the visible and hidden bias. $w_{ij}^{kl}$ are weights of
-the \textbf{inter-layer} connection terms which connect visible and
-hidden units. $ v_{im}^k$ and $u_{jn}^l$ are weights of the
-\textbf{intra-layer} connection terms which connect the visible units
-to each other and the hidden units to each other, respectively.
-
-
-
-We remove the intra-layer connections by setting $v_{im}$ and $u_{jn}$
-to zero. The expression for the energy of the RBM is then
-
-!bt
-\begin{align}
-	E_{RBM}(\bm{x}, \bm{h}) = - \sum_{i, k}^{M, K} a_i^k \alpha_i^k (x_i)
-	- \sum_{j, l}^{N, L} b_j^l \beta_j^l (h_j) 
-	- \sum_{i,j,k,l}^{M,N,K,L} \alpha_i^k (x_i) w_{ij}^{kl} \beta_j^l (h_j). 
-\end{align}
-!et
-resulting in 
-!bt
-\begin{align}
-	P_{RBM} (\bm{x}) =& \int P_{RBM} (\bm{x}, \tilde{\bm{h}})  d \tilde{\bm{h}} \nonumber \\
-	=& \frac{1}{Z_{RBM}} \int e^{-E_{RBM} (\bm{x}, \tilde{\bm{h}}) } d\tilde{\bm{h}} \nonumber \\
-	=& \frac{1}{Z_{RBM}} \int e^{\sum_{i, k} a_i^k \alpha_i^k (x_i)
-	+ \sum_{j, l} b_j^l \beta_j^l (\tilde{h}_j) 
-	+ \sum_{i,j,k,l} \alpha_i^k (x_i) w_{ij}^{kl} \beta_j^l (\tilde{h}_j)} 
-	d\tilde{\bm{h}} \nonumber \\
-	=& \frac{1}{Z_{RBM}} e^{\sum_{i, k} a_i^k \alpha_i^k (x_i)}
-	\int \prod_j^N e^{\sum_l b_j^l \beta_j^l (\tilde{h}_j) 
-	+ \sum_{i,k,l} \alpha_i^k (x_i) w_{ij}^{kl} \beta_j^l (\tilde{h}_j)} d\tilde{\bm{h}} \nonumber \\
-	=& \frac{1}{Z_{RBM}} e^{\sum_{i, k} a_i^k \alpha_i^k (x_i)}
-	\biggl( \int e^{\sum_l b_1^l \beta_1^l (\tilde{h}_1) + \sum_{i,k,l} \alpha_i^k (x_i) w_{i1}^{kl} \beta_1^l (\tilde{h}_1)} d \tilde{h}_1 \nonumber \\
-	& \times \int e^{\sum_l b_2^l \beta_2^l (\tilde{h}_2) + \sum_{i,k,l} \alpha_i^k (x_i) w_{i2}^{kl} \beta_2^l (\tilde{h}_2)} d \tilde{h}_2 \nonumber \\
-	& \times ... \nonumber \\
-	& \times \int e^{\sum_l b_N^l \beta_N^l (\tilde{h}_N) + \sum_{i,k,l} \alpha_i^k (x_i) w_{iN}^{kl} \beta_N^l (\tilde{h}_N)} d \tilde{h}_N \biggr) \nonumber \\
-	=& \frac{1}{Z_{RBM}} e^{\sum_{i, k} a_i^k \alpha_i^k (x_i)}
-	\prod_j^N \int e^{\sum_l b_j^l \beta_j^l (\tilde{h}_j) + \sum_{i,k,l} \alpha_i^k (x_i) w_{ij}^{kl} \beta_j^l (\tilde{h}_j)}  d\tilde{h}_j
-\end{align}
-!et
-
-Similarly
-
-!bt
-\begin{align}
-	P_{RBM} (\bm{h}) =& \frac{1}{Z_{RBM}} \int e^{-E_{RBM} (\tilde{\bm{x}}, \bm{h})} d\tilde{\bm{x}} \nonumber \\
-	=& \frac{1}{Z_{RBM}} e^{\sum_{j, l} b_j^l \beta_j^l (h_j)}
-	\prod_i^M \int e^{\sum_k a_i^k \alpha_i^k (\tilde{x}_i)
-	+ \sum_{j,k,l} \alpha_i^k (\tilde{x}_i) w_{ij}^{kl} \beta_j^l (h_j)} d\tilde{x}_i
-\end{align}
-!et
-
-
-Using Bayes theorem
-
-!bt
-\begin{align}
-	P_{RBM} (\bm{h}|\bm{x}) =& \frac{P_{RBM} (\bm{x}, \bm{h})}{P_{RBM} (\bm{x})} \nonumber \\
-	=& \frac{\frac{1}{Z_{RBM}} e^{\sum_{i, k} a_i^k \alpha_i^k (x_i)
-	+ \sum_{j, l} b_j^l \beta_j^l (h_j) 
-	+ \sum_{i,j,k,l} \alpha_i^k (x_i) w_{ij}^{kl} \beta_j^l (h_j)}}
-	{\frac{1}{Z_{RBM}} e^{\sum_{i, k} a_i^k \alpha_i^k (x_i)}
-	\prod_j^N \int e^{\sum_l b_j^l \beta_j^l (\tilde{h}_j) + \sum_{i,k,l} \alpha_i^k (x_i) w_{ij}^{kl} \beta_j^l (\tilde{h}_j)}  d\tilde{h}_j} \nonumber \\
-	=& \prod_j^N \frac{e^{\sum_l b_j^l \beta_j^l (h_j) + \sum_{i,k,l} \alpha_i^k (x_i) w_{ij}^{kl} \beta_j^l (h_j)} }
-	{\int e^{\sum_l b_j^l \beta_j^l (\tilde{h}_j) + \sum_{i,k,l} \alpha_i^k (x_i) w_{ij}^{kl} \beta_j^l (\tilde{h}_j)}  d\tilde{h}_j}
-\end{align}
-!et
-
-Similarly
-
-!bt
-\begin{align}
-	P_{RBM} (\bm{x}|\bm{h}) =&  \frac{P_{RBM} (\bm{x}, \bm{h})}{P_{RBM} (\bm{h})} \nonumber \\
-	=& \prod_i^M \frac{e^{\sum_k a_i^k \alpha_i^k (x_i)
-	+ \sum_{j,k,l} \alpha_i^k (x_i) w_{ij}^{kl} \beta_j^l (h_j)}}
-	{\int e^{\sum_k a_i^k \alpha_i^k (\tilde{x}_i)
-	+ \sum_{j,k,l} \alpha_i^k (\tilde{x}_i) w_{ij}^{kl} \beta_j^l (h_j)} d\tilde{x}_i}
-\end{align}
-!et
-
-
-
-
-The original RBM had binary visible and hidden nodes. They were
-showned to be universal approximators of discrete distributions.
-It was also shown that adding hidden units yields
-strictly improved modelling power. The common choice of binary values
-are 0 and 1. However, in some physics applications, -1 and 1 might be
-a more natural choice. We will here use 0 and 1.
-
-
-!bt
-\begin{align}
-	E_{BB}(\bm{x}, \mathbf{h}) = - \sum_i^M x_i a_i- \sum_j^N b_j h_j - \sum_{i,j}^{M,N} x_i w_{ij} h_j.
-\end{align}
-!et
-
-
-
-!bt
-\begin{align}
-	p_{BB}(\bm{x}, \bm{h}) =& \frac{1}{Z_{BB}} e^{\sum_i^M a_i x_i + \sum_j^N b_j h_j + \sum_{ij}^{M,N} x_i w_{ij} h_j} \\
-	=& \frac{1}{Z_{BB}} e^{\bm{x}^T \bm{a} + \bm{b}^T \bm{h} + \bm{x}^T \bm{W} \bm{h}}
-\end{align}
-!et
-
-with the partition function
-
-!bt
-\begin{align}
-	Z_{BB} = \sum_{\bm{x}, \bm{h}} e^{\bm{x}^T \bm{a} + \bm{b}^T \bm{h} + \bm{x}^T \bm{W} \bm{h}} .
-\end{align}
-!et
-
-=== Marginal Probability Density Functions ===
-
-In order to find the probability of any configuration of the visible units we derive the marginal probability density function.
-
-!bt
-\begin{align}
-	p_{BB} (\bm{x}) =& \sum_{\bm{h}} p_{BB} (\bm{x}, \bm{h}) \\
-	=& \frac{1}{Z_{BB}} \sum_{\bm{h}} e^{\bm{x}^T \bm{a} + \bm{b}^T \bm{h} + \bm{x}^T \bm{W} \bm{h}} \nonumber \\
-	=& \frac{1}{Z_{BB}} e^{\bm{x}^T \bm{a}} \sum_{\bm{h}} e^{\sum_j^N (b_j + \bm{x}^T \bm{w}_{\ast j})h_j} \nonumber \\
-	=& \frac{1}{Z_{BB}} e^{\bm{x}^T \bm{a}} \sum_{\bm{h}} \prod_j^N e^{ (b_j + \bm{x}^T \bm{w}_{\ast j})h_j} \nonumber \\
-	=& \frac{1}{Z_{BB}} e^{\bm{x}^T \bm{a}} \bigg ( \sum_{h_1} e^{(b_1 + \bm{x}^T \bm{w}_{\ast 1})h_1}
-	\times \sum_{h_2} e^{(b_2 + \bm{x}^T \bm{w}_{\ast 2})h_2} \times \nonumber \\
-	& ... \times \sum_{h_2} e^{(b_N + \bm{x}^T \bm{w}_{\ast N})h_N} \bigg ) \nonumber \\
-	=& \frac{1}{Z_{BB}} e^{\bm{x}^T \bm{a}} \prod_j^N \sum_{h_j} e^{(b_j + \bm{x}^T \bm{w}_{\ast j}) h_j} \nonumber \\
-	=& \frac{1}{Z_{BB}} e^{\bm{x}^T \bm{a}} \prod_j^N (1 + e^{b_j + \bm{x}^T \bm{w}_{\ast j}}) .
-\end{align}
-!et
-
-A similar derivation yields the marginal probability of the hidden units
-
-!bt
-\begin{align}
-	p_{BB} (\bm{h}) = \frac{1}{Z_{BB}} e^{\bm{b}^T \bm{h}} \prod_i^M (1 + e^{a_i + \bm{w}_{i\ast}^T \bm{h}}) .
-\end{align}
-!et
-
-=== Conditional Probability Density Functions ===
-
-We derive the probability of the hidden units given the visible units using Bayes' rule
-
-!bt
-\begin{align}
-	p_{BB} (\bm{h}|\bm{x}) =& \frac{p_{BB} (\bm{x}, \bm{h})}{p_{BB} (\bm{x})} \nonumber \\
-	=& \frac{ \frac{1}{Z_{BB}}  e^{\bm{x}^T \bm{a} + \bm{b}^T \bm{h} + \bm{x}^T \bm{W} \bm{h}} }
-	        {\frac{1}{Z_{BB}} e^{\bm{x}^T \bm{a}} \prod_j^N (1 + e^{b_j + \bm{x}^T \bm{w}_{\ast j}})} \nonumber \\
-	=& \frac{  e^{\bm{x}^T \bm{a}} e^{ \sum_j^N (b_j + \bm{x}^T \bm{w}_{\ast j} ) h_j} }
-	        { e^{\bm{x}^T \bm{a}} \prod_j^N (1 + e^{b_j + \bm{x}^T \bm{w}_{\ast j}})} \nonumber \\
-	=& \prod_j^N \frac{ e^{(b_j + \bm{x}^T \bm{w}_{\ast j} ) h_j}  }
-	{1 + e^{b_j + \bm{x}^T \bm{w}_{\ast j}}} \nonumber \\
-	=& \prod_j^N p_{BB} (h_j| \bm{x}) .
-\end{align}
-!et
-
-From this we find the probability of a hidden unit being "on" or "off":
-
-!bt
-\begin{align}
-	p_{BB} (h_j=1 | \bm{x}) =&   \frac{ e^{(b_j + \bm{x}^T \bm{w}_{\ast j} ) h_j}  }
-	{1 + e^{b_j + \bm{x}^T \bm{w}_{\ast j}}} \\
-	=&  \frac{ e^{(b_j + \bm{x}^T \bm{w}_{\ast j} )}  }
-	{1 + e^{b_j + \bm{x}^T \bm{w}_{\ast j}}} \\
-	=&  \frac{ 1 }{1 + e^{-(b_j + \bm{x}^T \bm{w}_{\ast j})} } ,
-\end{align}
-!et
-and
-
-!bt
-\begin{align}
-	p_{BB} (h_j=0 | \bm{x}) =\frac{ 1 }{1 + e^{b_j + \bm{x}^T \bm{w}_{\ast j}} } .
-\end{align}
-!et
-
-
-Similarly we have that the conditional probability of the visible units given the hidden are
-
-!bt
-\begin{align}
-	p_{BB} (\bm{x}|\bm{h}) =& \prod_i^M \frac{ e^{ (a_i + \bm{w}_{i\ast}^T \bm{h}) x_i} }{ 1 + e^{a_i + \bm{w}_{i\ast}^T \bm{h}} } \\
-	&= \prod_i^M p_{BB} (x_i | \bm{h}) .
-\end{align}
-!et
-
-
-!bt
-\begin{align}
-	p_{BB} (x_i=1 | \bm{h}) =& \frac{1}{1 + e^{-(a_i + \bm{w}_{i\ast}^T \bm{h} )}} \\
-	p_{BB} (x_i=0 | \bm{h}) =& \frac{1}{1 + e^{a_i + \bm{w}_{i\ast}^T \bm{h} }} .
-\end{align}
-!et
-
-
-
-
-
-=== Gaussian-Binary Restricted Boltzmann Machines ===
-
-
-Inserting into the expression for $E_{RBM}(\bm{x},\bm{h})$ in equation  results in the energy
-
-!bt
-\begin{align}
-	E_{GB}(\bm{x}, \bm{h}) =& \sum_i^M \frac{(x_i - a_i)^2}{2\sigma_i^2}
-	- \sum_j^N b_j h_j 
-	-\sum_{ij}^{M,N} \frac{x_i w_{ij} h_j}{\sigma_i^2} \nonumber \\
-	=& \vert\vert\frac{\bm{x} -\bm{a}}{2\bm{\sigma}}\vert\vert^2 - \bm{b}^T \bm{h} 
-	- (\frac{\bm{x}}{\bm{\sigma}^2})^T \bm{W}\bm{h} . 
-\end{align}
-!et
-
-=== Joint Probability Density Function ===
-
-!bt
-\begin{align}
-	p_{GB} (\bm{x}, \bm{h}) =& \frac{1}{Z_{GB}} e^{-\vert\vert\frac{\bm{x} -\bm{a}}{2\bm{\sigma}}\vert\vert^2 + \bm{b}^T \bm{h} 
-	+ (\frac{\bm{x}}{\bm{\sigma}^2})^T \bm{W}\bm{h}} \nonumber \\
-	=& \frac{1}{Z_{GB}} e^{- \sum_i^M \frac{(x_i - a_i)^2}{2\sigma_i^2}
-	+ \sum_j^N b_j h_j 
-	+\sum_{ij}^{M,N} \frac{x_i w_{ij} h_j}{\sigma_i^2}} \nonumber \\
-	=& \frac{1}{Z_{GB}} \prod_{ij}^{M,N} e^{-\frac{(x_i - a_i)^2}{2\sigma_i^2}
-	+ b_j h_j 
-	+\frac{x_i w_{ij} h_j}{\sigma_i^2}} ,
-\end{align}
-!et
-
-with the partition function given by
-
-!bt
-\begin{align}
-	Z_{GB} =& \int \sum_{\tilde{\bm{h}}}^{\tilde{\bm{H}}} e^{-\vert\vert\frac{\tilde{\bm{x}} -\bm{a}}{2\bm{\sigma}}\vert\vert^2 + \bm{b}^T \tilde{\bm{h}} 
-	+ (\frac{\tilde{\bm{x}}}{\bm{\sigma}^2})^T \bm{W}\tilde{\bm{h}}} d\tilde{\bm{x}} .
-\end{align}
-!et
-
-=== Marginal Probability Density Functions ===
-
-We proceed to find the marginal probability densitites of the
-Gaussian-binary RBM. We first marginalize over the binary hidden units
-to find $p_{GB} (\bm{x})$
-
-!bt
-\begin{align}
-	p_{GB} (\bm{x}) =& \sum_{\tilde{\bm{h}}}^{\tilde{\bm{H}}} p_{GB} (\bm{x}, \tilde{\bm{h}}) \nonumber \\
-	=& \frac{1}{Z_{GB}} \sum_{\tilde{\bm{h}}}^{\tilde{\bm{H}}} 
-	e^{-\vert\vert\frac{\bm{x} -\bm{a}}{2\bm{\sigma}}\vert\vert^2 + \bm{b}^T \tilde{\bm{h}} 
-	+ (\frac{\bm{x}}{\bm{\sigma}^2})^T \bm{W}\tilde{\bm{h}}} \nonumber \\
-	=& \frac{1}{Z_{GB}} e^{-\vert\vert\frac{\bm{x} -\bm{a}}{2\bm{\sigma}}\vert\vert^2}
-	\prod_j^N (1 + e^{b_j + (\frac{\bm{x}}{\bm{\sigma}^2})^T \bm{w}_{\ast j}} ) .
-\end{align}
-!et
-
-We next marginalize over the visible units. This is the first time we
-marginalize over continuous values. We rewrite the exponential factor
-dependent on $\bm{x}$ as a Gaussian function before we integrate in
-the last step.
-
-!bt
-\begin{align}
-	p_{GB} (\bm{h}) =& \int p_{GB} (\tilde{\bm{x}}, \bm{h}) d\tilde{\bm{x}} \nonumber \\
-	=& \frac{1}{Z_{GB}} \int e^{-\vert\vert\frac{\tilde{\bm{x}} -\bm{a}}{2\bm{\sigma}}\vert\vert^2 + \bm{b}^T \bm{h} 
-	+ (\frac{\tilde{\bm{x}}}{\bm{\sigma}^2})^T \bm{W}\bm{h}} d\tilde{\bm{x}} \nonumber \\
-	=& \frac{1}{Z_{GB}} e^{\bm{b}^T \bm{h} } \int \prod_i^M
-	e^{- \frac{(\tilde{x}_i - a_i)^2}{2\sigma_i^2} + \frac{\tilde{x}_i \bm{w}_{i\ast}^T \bm{h}}{\sigma_i^2} } d\tilde{\bm{x}} \nonumber \\
-	=& \frac{1}{Z_{GB}} e^{\bm{b}^T \bm{h} }
-	\biggl( \int e^{- \frac{(\tilde{x}_1 - a_1)^2}{2\sigma_1^2} + \frac{\tilde{x}_1 \bm{w}_{1\ast}^T \bm{h}}{\sigma_1^2} } d\tilde{x}_1 \nonumber \\
-	& \times \int e^{- \frac{(\tilde{x}_2 - a_2)^2}{2\sigma_2^2} + \frac{\tilde{x}_2 \bm{w}_{2\ast}^T \bm{h}}{\sigma_2^2} } d\tilde{x}_2 \nonumber \\
-	& \times ... \nonumber \\
-	&\times \int e^{- \frac{(\tilde{x}_M - a_M)^2}{2\sigma_M^2} + \frac{\tilde{x}_M \bm{w}_{M\ast}^T \bm{h}}{\sigma_M^2} } d\tilde{x}_M \biggr) \nonumber \\
-	=& \frac{1}{Z_{GB}} e^{\bm{b}^T \bm{h}} \prod_i^M
-	\int e^{- \frac{(\tilde{x}_i - a_i)^2 - 2\tilde{x}_i \bm{w}_{i\ast}^T \bm{h}}{2\sigma_i^2} } d\tilde{x}_i \nonumber \\
-	=& \frac{1}{Z_{GB}} e^{\bm{b}^T \bm{h}} \prod_i^M
-	\int e^{- \frac{\tilde{x}_i^2 - 2\tilde{x}_i(a_i + \tilde{x}_i \bm{w}_{i\ast}^T \bm{h}) + a_i^2}{2\sigma_i^2} } d\tilde{x}_i \nonumber \\
-	=& \frac{1}{Z_{GB}} e^{\bm{b}^T \bm{h}} \prod_i^M
-	\int e^{- \frac{\tilde{x}_i^2 - 2\tilde{x}_i(a_i + \bm{w}_{i\ast}^T \bm{h}) + (a_i + \bm{w}_{i\ast}^T \bm{h})^2 - (a_i + \bm{w}_{i\ast}^T \bm{h})^2 + a_i^2}{2\sigma_i^2} } d\tilde{x}_i \nonumber \\
-	=& \frac{1}{Z_{GB}} e^{\bm{b}^T \bm{h}} \prod_i^M
-	\int e^{- \frac{(\tilde{x}_i - (a_i + \bm{w}_{i\ast}^T \bm{h}))^2 - a_i^2 -2a_i \bm{w}_{i\ast}^T \bm{h} - (\bm{w}_{i\ast}^T \bm{h})^2 + a_i^2}{2\sigma_i^2} } d\tilde{x}_i \nonumber \\
-	=& \frac{1}{Z_{GB}} e^{\bm{b}^T \bm{h}} \prod_i^M
-	e^{\frac{2a_i \bm{w}_{i\ast}^T \bm{h} +(\bm{w}_{i\ast}^T \bm{h})^2 }{2\sigma_i^2}}
-	\int e^{- \frac{(\tilde{x}_i - a_i - \bm{w}_{i\ast}^T \bm{h})^2}{2\sigma_i^2}}
-	d\tilde{x}_i \nonumber \\
-	=& \frac{1}{Z_{GB}} e^{\bm{b}^T \bm{h}} \prod_i^M
-	\sqrt{2\pi \sigma_i^2}
-	e^{\frac{2a_i \bm{w}_{i\ast}^T \bm{h} +(\bm{w}_{i\ast}^T \bm{h})^2 }{2\sigma_i^2}} .
-\end{align}
-!et
-
-=== Conditional Probability Density Functions ===
-
-We finish by deriving the conditional probabilities.
-!bt 
-\begin{align}
-	p_{GB} (\bm{h}| \bm{x}) =& \frac{p_{GB} (\bm{x}, \bm{h})}{p_{GB} (\bm{x})} \nonumber \\
-	=& \frac{\frac{1}{Z_{GB}} e^{-\vert\vert\frac{\bm{x} -\bm{a}}{2\bm{\sigma}}\vert\vert^2 + \bm{b}^T \bm{h} 
-	+ (\frac{\bm{x}}{\bm{\sigma}^2})^T \bm{W}\bm{h}}}
-	{\frac{1}{Z_{GB}} e^{-\vert\vert\frac{\bm{x} -\bm{a}}{2\bm{\sigma}}\vert\vert^2}
-	\prod_j^N (1 + e^{b_j + (\frac{\bm{x}}{\bm{\sigma}^2})^T \bm{w}_{\ast j}} ) }
-	\nonumber \\
-	=& \prod_j^N \frac{e^{(b_j + (\frac{\bm{x}}{\bm{\sigma}^2})^T \bm{w}_{\ast j})h_j } }
-	{1 + e^{b_j + (\frac{\bm{x}}{\bm{\sigma}^2})^T \bm{w}_{\ast j}}} \nonumber \\
-	=& \prod_j^N p_{GB} (h_j|\bm{x}).
-\end{align}
-!et
-The conditional probability of a binary hidden unit $h_j$ being on or off again takes the form of a sigmoid function
-
-!bt
-\begin{align}
-	p_{GB} (h_j =1 | \bm{x}) =& \frac{e^{b_j + (\frac{\bm{x}}{\bm{\sigma}^2})^T \bm{w}_{\ast j} } }
-	{1 + e^{b_j + (\frac{\bm{x}}{\bm{\sigma}^2})^T \bm{w}_{\ast j}}} \nonumber \\
-	=& \frac{1}{1 + e^{-b_j - (\frac{\bm{x}}{\bm{\sigma}^2})^T \bm{w}_{\ast j}}} \\
-	p_{GB} (h_j =0 | \bm{x}) =&
-	\frac{1}{1 + e^{b_j +(\frac{\bm{x}}{\bm{\sigma}^2})^T \bm{w}_{\ast j}}} .
-\end{align}
-!et
-
-The conditional probability of the continuous $\bm{x}$ now has another form, however.
-
-!bt
-\begin{align}
-	p_{GB} (\bm{x}|\bm{h})
-	=& \frac{p_{GB} (\bm{x}, \bm{h})}{p_{GB} (\bm{h})} \nonumber \\
-	=& \frac{\frac{1}{Z_{GB}} e^{-\vert\vert\frac{\bm{x} -\bm{a}}{2\bm{\sigma}}\vert\vert^2 + \bm{b}^T \bm{h} 
-	+ (\frac{\bm{x}}{\bm{\sigma}^2})^T \bm{W}\bm{h}}}
-	{\frac{1}{Z_{GB}} e^{\bm{b}^T \bm{h}} \prod_i^M
-	\sqrt{2\pi \sigma_i^2}
-	e^{\frac{2a_i \bm{w}_{i\ast}^T \bm{h} +(\bm{w}_{i\ast}^T \bm{h})^2 }{2\sigma_i^2}}}
-	\nonumber \\
-	=& \prod_i^M \frac{1}{\sqrt{2\pi \sigma_i^2}}
-	\frac{e^{- \frac{(x_i - a_i)^2}{2\sigma_i^2} + \frac{x_i \bm{w}_{i\ast}^T \bm{h}}{2\sigma_i^2} }}
-	{e^{\frac{2a_i \bm{w}_{i\ast}^T \bm{h} +(\bm{w}_{i\ast}^T \bm{h})^2 }{2\sigma_i^2}}}
-	\nonumber \\
-	=& \prod_i^M \frac{1}{\sqrt{2\pi \sigma_i^2}}
-	\frac{e^{-\frac{x_i^2 - 2a_i x_i + a_i^2 - 2x_i \bm{w}_{i\ast}^T\bm{h} }{2\sigma_i^2} } }
-	{e^{\frac{2a_i \bm{w}_{i\ast}^T \bm{h} +(\bm{w}_{i\ast}^T \bm{h})^2 }{2\sigma_i^2}}}
-	\nonumber \\
-	=& \prod_i^M \frac{1}{\sqrt{2\pi \sigma_i^2}}
-	e^{- \frac{x_i^2 - 2a_i x_i + a_i^2 - 2x_i \bm{w}_{i\ast}^T\bm{h}
-	+ 2a_i \bm{w}_{i\ast}^T \bm{h} +(\bm{w}_{i\ast}^T \bm{h})^2}
-	{2\sigma_i^2} }
-	\nonumber \\
-	=& \prod_i^M \frac{1}{\sqrt{2\pi \sigma_i^2}}
-	e^{ - \frac{(x_i - b_i - \bm{w}_{i\ast}^T \bm{h})^2}{2\sigma_i^2}} \nonumber \\
-	=& \prod_i^M \mathcal{N}
-	(x_i | b_i + \bm{w}_{i\ast}^T \bm{h}, \sigma_i^2) \\
-	\Rightarrow p_{GB} (x_i|\bm{h}) =& \mathcal{N}
-	(x_i | b_i + \bm{w}_{i\ast}^T \bm{h}, \sigma_i^2) .
-\end{align}
-!et
-
-
-The form of these conditional probabilities explains the name
-"Gaussian" and the form of the Gaussian-binary energy function. We see
-that the conditional probability of $x_i$ given $\bm{h}$ is a normal
-distribution with mean $b_i + \bm{w}_{i\ast}^T \bm{h}$ and variance
-$\sigma_i^2$.
-
-
-===== Neural Quantum States =====
-
-
-The wavefunction should be a probability amplitude depending on $\bm{x}$. The RBM model is given by the joint distribution of $\bm{x}$ and $\bm{h}$
-!bt
-\begin{align}
-	F_{rbm}(\bm{x},\mathbf{h}) = \frac{1}{Z} e^{-\frac{1}{T_0}E(\bm{x},\mathbf{h})}
-\end{align}
-!et
-To find the marginal distribution of $\bm{x}$ we set:
-
-!bt
-\begin{align}
-	F_{rbm}(\mathbf{x}) &= \sum_\mathbf{h} F_{rbm}(\mathbf{x}, \mathbf{h}) \\
-				&= \frac{1}{Z}\sum_\mathbf{h} e^{-E(\mathbf{x}, \mathbf{h})}
-\end{align}
-!et
-
-Now this is what we use to represent the wave function, calling it a neural-network quantum state (NQS)
-
-!bt
-\begin{align}
-	\Psi (\mathbf{X}) &= F_{rbm}(\mathbf{x}) \\
-	&= \frac{1}{Z}\sum_{\bm{h}} e^{-E(\mathbf{x}, \mathbf{h})} \\
-	&= \frac{1}{Z} \sum_{\{h_j\}} e^{-\sum_i^M \frac{(x_i - a_i)^2}{2\sigma^2} + \sum_j^N b_j h_j + \sum_{i,j}^{M,N} \frac{x_i w_{ij} h_j}{\sigma^2}} \\
-	&= \frac{1}{Z} e^{-\sum_i^M \frac{(x_i - a_i)^2}{2\sigma^2}} \prod_j^N (1 + e^{b_j + \sum_i^M \frac{x_i w_{ij}}{\sigma^2}}) \\
-\end{align}
-!et
-
-The above wavefunction is the most general one because it allows for
-complex valued wavefunctions. However it fundamentally changes the
-probabilistic foundation of the RBM, because what is usually a
-probability in the RBM framework is now a an amplitude. This means
-that a lot of the theoretical framework usually used to interpret the
-model, i.e. graphical models, conditional probabilities, and Markov
-random fields, breaks down. If we assume the wavefunction to be
-postive definite, however, we can use the RBM to represent the squared
-wavefunction, and thereby a probability. This also makes it possible
-to sample from the model using Gibbs sampling, because we can obtain
-the conditional probabilities.
-
-!bt
-\begin{align}
-	|\Psi (\mathbf{X})|^2 &= F_{rbm}(\mathbf{X}) \\
-	\Rightarrow \Psi (\mathbf{X}) &= \sqrt{F_{rbm}(\mathbf{X})} \\
-	&= \frac{1}{\sqrt{Z}}\sqrt{\sum_{\{h_j\}} e^{-E(\mathbf{X}, \mathbf{h})}} \\
-	&= \frac{1}{\sqrt{Z}} \sqrt{\sum_{\{h_j\}} e^{-\sum_i^M \frac{(X_i - a_i)^2}{2\sigma^2} + \sum_j^N b_j h_j + \sum_{i,j}^{M,N} \frac{X_i w_{ij} h_j}{\sigma^2}} }\\
-	&= \frac{1}{\sqrt{Z}} e^{-\sum_i^M \frac{(X_i - a_i)^2}{4\sigma^2}} \sqrt{\sum_{\{h_j\}} \prod_j^N e^{b_j h_j + \sum_i^M \frac{X_i w_{ij} h_j}{\sigma^2}}} \\
-	&= \frac{1}{\sqrt{Z}} e^{-\sum_i^M \frac{(X_i - a_i)^2}{4\sigma^2}} \sqrt{\prod_j^N \sum_{h_j}  e^{b_j h_j + \sum_i^M \frac{X_i w_{ij} h_j}{\sigma^2}}} \\
-	&= \frac{1}{\sqrt{Z}} e^{-\sum_i^M \frac{(X_i - a_i)^2}{4\sigma^2}} \prod_j^N \sqrt{e^0 + e^{b_j + \sum_i^M \frac{X_i w_{ij}}{\sigma^2}}} \\
-	&= \frac{1}{\sqrt{Z}} e^{-\sum_i^M \frac{(X_i - a_i)^2}{4\sigma^2}} \prod_j^N \sqrt{1 + e^{b_j + \sum_i^M \frac{X_i w_{ij}}{\sigma^2}}} \\
-\end{align}
-!et
-
-=== Cost function ===
-
-This is where we deviate from what is common in machine
-learning. Rather than defining a cost function based on some dataset,
-our cost function is the energy of the quantum mechanical system. From
-the variational principle we know that minizing this energy should
-lead to the ground state wavefunction. As stated previously the local
-energy is given by
-
-!bt
-\begin{align}
-	E_L = \frac{1}{\Psi} \hat{\mathbf{H}} \Psi,
-\end{align}
-!et
-and the gradient is
-
-!bt
-\begin{align}
-	G_i = \frac{\partial \langle E_L \rangle}{\partial \alpha_i}
-	= 2(\langle E_L \frac{1}{\Psi}\frac{\partial \Psi}{\partial \alpha_i} \rangle - \langle E_L \rangle \langle \frac{1}{\Psi}\frac{\partial \Psi}{\partial \alpha_i} \rangle ),
-\end{align}
-!et
-where $\alpha_i = a_1,...,a_M,b_1,...,b_N,w_{11},...,w_{MN}$.
-
-
-We use that $\frac{1}{\Psi}\frac{\partial \Psi}{\partial \alpha_i} 
-	= \frac{\partial \ln{\Psi}}{\partial \alpha_i}$,
-and find
-
-!bt
-\begin{align}
-	\ln{\Psi({\mathbf{X}})} &= -\ln{Z} - \sum_m^M \frac{(X_m - a_m)^2}{2\sigma^2}
-	+ \sum_n^N \ln({1 + e^{b_n + \sum_i^M \frac{X_i w_{in}}{\sigma^2}})}.
-\end{align}
-!et
-
-This gives
-
-!bt
-\begin{align}
-	\frac{\partial }{\partial a_m} \ln\Psi
-	&= 	\frac{1}{\sigma^2} (X_m - a_m) \\
-	\frac{\partial }{\partial b_n} \ln\Psi
-	&=
-	\frac{1}{e^{-b_n-\frac{1}{\sigma^2}\sum_i^M X_i w_{in}} + 1} \\
-	\frac{\partial }{\partial w_{mn}} \ln\Psi
-	&= \frac{X_m}{\sigma^2(e^{-b_n-\frac{1}{\sigma^2}\sum_i^M X_i w_{in}} + 1)}.
-\end{align}
-!et
-
-If $\Psi = \sqrt{F_{rbm}}$ we have
-
-!bt
-\begin{align}
-	\ln{\Psi({\mathbf{X}})} &= -\frac{1}{2}\ln{Z} - \sum_m^M \frac{(X_m - a_m)^2}{4\sigma^2}
-	+ \frac{1}{2}\sum_n^N \ln({1 + e^{b_n + \sum_i^M \frac{X_i w_{in}}{\sigma^2}})},
-\end{align}
-!et
-which results in
-
-!bt
-\begin{align}
-	\frac{\partial }{\partial a_m} \ln\Psi
-	&= 	\frac{1}{2\sigma^2} (X_m - a_m) \\
-	\frac{\partial }{\partial b_n} \ln\Psi
-	&=
-	\frac{1}{2(e^{-b_n-\frac{1}{\sigma^2}\sum_i^M X_i w_{in}} + 1)} \\
-	\frac{\partial }{\partial w_{mn}} \ln\Psi
-	&= \frac{X_m}{2\sigma^2(e^{-b_n-\frac{1}{\sigma^2}\sum_i^M X_i w_{in}} + 1)}.
-\end{align}
-!et
-
-
-Let us assume again that our Hamiltonian is 
-!bt
-\begin{align}
-	\hat{\mathbf{H}} = \sum_p^P (-\frac{1}{2}\nabla_p^2 + \frac{1}{2}\omega^2 r_p^2 ) + \sum_{p<q} \frac{1}{r_{pq}},
-\end{align}
-!et
-
-
-where the first summation term represents the standard harmonic
-oscillator part and the latter the repulsive interaction between two
-electrons. Natural units ($\hbar=c=e=m_e=1$) are used, and $P$ is the
-number of particles. This gives us the following expression for the
-local energy ($D$ being the number of dimensions)
-
-!bt
-\begin{align}
-	E_L &= \frac{1}{\Psi} \mathbf{H} \Psi \\
-	&= \frac{1}{\Psi} (\sum_p^P (-\frac{1}{2}\nabla_p^2 + \frac{1}{2}\omega^2 r_p^2 ) + \sum_{p<q} \frac{1}{r_{pq}}) \Psi \\
-	&= -\frac{1}{2}\frac{1}{\Psi} \sum_p^P \nabla_p^2 \Psi 
-	+ \frac{1}{2}\omega^2 \sum_p^P  r_p^2  + \sum_{p<q} \frac{1}{r_{pq}} \\
-	&= -\frac{1}{2}\frac{1}{\Psi} \sum_p^P \sum_d^D \frac{\partial^2 \Psi}{\partial x_{pd}^2} + \frac{1}{2}\omega^2 \sum_p^P  r_p^2  + \sum_{p<q} \frac{1}{r_{pq}} \\
-	&= \frac{1}{2} \sum_p^P \sum_d^D (-(\frac{\partial}{\partial x_{pd}} \ln\Psi)^2 -\frac{\partial^2}{\partial x_{pd}^2} \ln\Psi + \omega^2 x_{pd}^2)  + \sum_{p<q} \frac{1}{r_{pq}}. \\
-\end{align}
-!et
-
-
-Letting each visible node in the Boltzmann machine 
-represent one coordinate of one particle, we obtain
-
-!bt
-\begin{align}
-	E_L &=
-	\frac{1}{2} \sum_m^M (-(\frac{\partial}{\partial v_m} \ln\Psi)^2 -\frac{\partial^2}{\partial v_m^2} \ln\Psi + \omega^2 v_m^2)  + \sum_{p<q} \frac{1}{r_{pq}},
-\end{align}
-!et
-where we have that
-
-!bt
-\begin{align}
-	\frac{\partial}{\partial x_m} \ln\Psi
-	&= - \frac{1}{\sigma^2}(x_m - a_m) + \frac{1}{\sigma^2} \sum_n^N \frac{w_{mn}}{e^{-b_n - \frac{1}{\sigma^2}\sum_i^M x_i w_{in}} + 1} \\
-	\frac{\partial^2}{\partial x_m^2} \ln\Psi
-	&= - \frac{1}{\sigma^2} + \frac{1}{\sigma^4}\sum_n^N \omega_{mn}^2 \frac{e^{b_n + \frac{1}{\sigma^2}\sum_i^M x_i w_{in}}}{(e^{b_n + \frac{1}{\sigma^2}\sum_i^M x_i w_{in}} + 1)^2}.
-\end{align}
-!et
-
-We now have all the expressions neeeded to calculate the gradient of
-the expected local energy with respect to the RBM parameters
-$\frac{\partial \langle E_L \rangle}{\partial \alpha_i}$.
-
-If we use $\Psi = \sqrt{F_{rbm}}$ we obtain
-!bt
-\begin{align}
-	\frac{\partial}{\partial x_m} \ln\Psi
-	&= - \frac{1}{2\sigma^2}(x_m - a_m) + \frac{1}{2\sigma^2} \sum_n^N
- 	\frac{w_{mn}}{e^{-b_n-\frac{1}{\sigma^2}\sum_i^M x_i w_{in}} + 1}
-	\\
-	\frac{\partial^2}{\partial x_m^2} \ln\Psi
-	&= - \frac{1}{2\sigma^2} + \frac{1}{2\sigma^4}\sum_n^N \omega_{mn}^2 \frac{e^{b_n + \frac{1}{\sigma^2}\sum_i^M x_i w_{in}}}{(e^{b_n + \frac{1}{\sigma^2}\sum_i^M x_i w_{in}} + 1)^2}.
-\end{align}
-!et
-The difference between this equation and the previous one is that we multiply by a factor $1/2$.
-
-
-
-
-
-===== Python version for the two non-interacting particles =====
+===== Same code but now with momentum gradient descent =====
+!bc pycod
+# Using Autograd to calculate gradients for OLS
+from random import random, seed
+import numpy as np
+import autograd.numpy as np
+import matplotlib.pyplot as plt
+from autograd import grad
+
+def CostOLS(beta):
+    return (1.0/n)*np.sum((y-X @ beta)**2)
+
+n = 100
+x = 2*np.random.rand(n,1)
+y = 4+3*x#+np.random.randn(n,1)
+
+X = np.c_[np.ones((n,1)), x]
+XT_X = X.T @ X
+theta_linreg = np.linalg.pinv(XT_X) @ (X.T @ y)
+print("Own inversion")
+print(theta_linreg)
+# Hessian matrix
+H = (2.0/n)* XT_X
+EigValues, EigVectors = np.linalg.eig(H)
+print(f"Eigenvalues of Hessian Matrix:{EigValues}")
+
+theta = np.random.randn(2,1)
+eta = 1.0/np.max(EigValues)
+Niterations = 30
+
+# define the gradient
+training_gradient = grad(CostOLS)
+
+for iter in range(Niterations):
+    gradients = training_gradient(theta)
+    theta -= eta*gradients
+    print(iter,gradients[0],gradients[1])
+print("theta from own gd")
+print(theta)
+
+# Now improve with momentum gradient descent
+change = 0.0
+delta_momentum = 0.3
+for iter in range(Niterations):
+    # calculate gradient
+    gradients = training_gradient(theta)
+    # calculate update
+    new_change = eta*gradients+delta_momentum*change
+    # take a step
+    theta -= new_change
+    # save the change
+    change = new_change
+    print(iter,gradients[0],gradients[1])
+print("theta from own gd wth momentum")
+print(theta)
+
+!ec
+
+
+===== But noen of these can compete with Newton's method =====
 
 !bc pycod
-# 2-electron VMC code for 2dim quantum dot with importance sampling
-# Using gaussian rng for new positions and Metropolis- Hastings 
-# Added restricted boltzmann machine method for dealing with the wavefunction
-# RBM code based heavily off of:
-# https://github.com/CompPhysics/ComputationalPhysics2/tree/gh-pages/doc/Programs/BoltzmannMachines/MLcpp/src/Pycode/ob
-from math import exp, sqrt
-from random import random, seed, normalvariate
+# Using Newton's method
+from random import random, seed
 import numpy as np
+import autograd.numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import cm
-from matplotlib.ticker import LinearLocator, FormatStrFormatter
-import sys
+from autograd import grad
 
+def CostOLS(beta):
+    return (1.0/n)*np.sum((y-X @ beta)**2)
 
+n = 100
+x = 2*np.random.rand(n,1)
+y = 4+3*x+np.random.randn(n,1)
 
-# Trial wave function for the 2-electron quantum dot in two dims
-def WaveFunction(r,a,b,w):
-    sigma=1.0
-    sig2 = sigma**2
-    Psi1 = 0.0
-    Psi2 = 1.0
-    Q = Qfac(r,b,w)
-    
-    for iq in range(NumberParticles):
-        for ix in range(Dimension):
-            Psi1 += (r[iq,ix]-a[iq,ix])**2
-            
-    for ih in range(NumberHidden):
-        Psi2 *= (1.0 + np.exp(Q[ih]))
-        
-    Psi1 = np.exp(-Psi1/(2*sig2))
+X = np.c_[np.ones((n,1)), x]
+XT_X = X.T @ X
+beta_linreg = np.linalg.pinv(XT_X) @ (X.T @ y)
+print("Own inversion")
+print(beta_linreg)
+# Hessian matrix
+H = (2.0/n)* XT_X
+# Note that here the Hessian does not depend on the parameters beta
+invH = np.linalg.pinv(H)
+EigValues, EigVectors = np.linalg.eig(H)
+print(f"Eigenvalues of Hessian Matrix:{EigValues}")
 
-    return Psi1*Psi2
+beta = np.random.randn(2,1)
+Niterations = 5
 
-# Local energy  for the 2-electron quantum dot in two dims, using analytical local energy
-def LocalEnergy(r,a,b,w):
-    sigma=1.0
-    sig2 = sigma**2
-    locenergy = 0.0
-    
-    Q = Qfac(r,b,w)
+# define the gradient
+training_gradient = grad(CostOLS)
 
-    for iq in range(NumberParticles):
-        for ix in range(Dimension):
-            sum1 = 0.0
-            sum2 = 0.0
-            for ih in range(NumberHidden):
-                sum1 += w[iq,ix,ih]/(1+np.exp(-Q[ih]))
-                sum2 += w[iq,ix,ih]**2 * np.exp(Q[ih]) / (1.0 + np.exp(Q[ih]))**2
-    
-            dlnpsi1 = -(r[iq,ix] - a[iq,ix]) /sig2 + sum1/sig2
-            dlnpsi2 = -1/sig2 + sum2/sig2**2
-            locenergy += 0.5*(-dlnpsi1*dlnpsi1 - dlnpsi2 + r[iq,ix]**2)
-            
-    if(interaction==True):
-        for iq1 in range(NumberParticles):
-            for iq2 in range(iq1):
-                distance = 0.0
-                for ix in range(Dimension):
-                    distance += (r[iq1,ix] - r[iq2,ix])**2
-                    
-                locenergy += 1/sqrt(distance)
-                
-    return locenergy
-
-# Derivate of wave function ansatz as function of variational parameters
-def DerivativeWFansatz(r,a,b,w):
-    
-    sigma=1.0
-    sig2 = sigma**2
-    
-    Q = Qfac(r,b,w)
-    
-    WfDer = np.empty((3,),dtype=object)
-    WfDer = [np.copy(a),np.copy(b),np.copy(w)]
-    
-    WfDer[0] = (r-a)/sig2
-    WfDer[1] = 1 / (1 + np.exp(-Q))
-    
-    for ih in range(NumberHidden):
-        WfDer[2][:,:,ih] = w[:,:,ih] / (sig2*(1+np.exp(-Q[ih])))
-            
-    return  WfDer
-
-# Setting up the quantum force for the two-electron quantum dot, recall that it is a vector
-def QuantumForce(r,a,b,w):
-
-    sigma=1.0
-    sig2 = sigma**2
-    
-    qforce = np.zeros((NumberParticles,Dimension), np.double)
-    sum1 = np.zeros((NumberParticles,Dimension), np.double)
-    
-    Q = Qfac(r,b,w)
-    
-    for ih in range(NumberHidden):
-        sum1 += w[:,:,ih]/(1+np.exp(-Q[ih]))
-    
-    qforce = 2*(-(r-a)/sig2 + sum1/sig2)
-    
-    return qforce
-    
-def Qfac(r,b,w):
-    Q = np.zeros((NumberHidden), np.double)
-    temp = np.zeros((NumberHidden), np.double)
-    
-    for ih in range(NumberHidden):
-        temp[ih] = (r*w[:,:,ih]).sum()
-        
-    Q = b + temp
-    
-    return Q
-    
-# Computing the derivative of the energy and the energy 
-def EnergyMinimization(a,b,w):
-
-    NumberMCcycles= 10000
-    # Parameters in the Fokker-Planck simulation of the quantum force
-    D = 0.5
-    TimeStep = 0.05
-    # positions
-    PositionOld = np.zeros((NumberParticles,Dimension), np.double)
-    PositionNew = np.zeros((NumberParticles,Dimension), np.double)
-    # Quantum force
-    QuantumForceOld = np.zeros((NumberParticles,Dimension), np.double)
-    QuantumForceNew = np.zeros((NumberParticles,Dimension), np.double)
-
-    # seed for rng generator 
-    seed()
-    energy = 0.0
-    DeltaE = 0.0
-
-    EnergyDer = np.empty((3,),dtype=object)
-    DeltaPsi = np.empty((3,),dtype=object)
-    DerivativePsiE = np.empty((3,),dtype=object)
-    EnergyDer = [np.copy(a),np.copy(b),np.copy(w)]
-    DeltaPsi = [np.copy(a),np.copy(b),np.copy(w)]
-    DerivativePsiE = [np.copy(a),np.copy(b),np.copy(w)]
-    for i in range(3): EnergyDer[i].fill(0.0)
-    for i in range(3): DeltaPsi[i].fill(0.0)
-    for i in range(3): DerivativePsiE[i].fill(0.0)
-
-    
-    #Initial position
-    for i in range(NumberParticles):
-        for j in range(Dimension):
-            PositionOld[i,j] = normalvariate(0.0,1.0)*sqrt(TimeStep)
-    wfold = WaveFunction(PositionOld,a,b,w)
-    QuantumForceOld = QuantumForce(PositionOld,a,b,w)
-
-    #Loop over MC MCcycles
-    for MCcycle in range(NumberMCcycles):
-        #Trial position moving one particle at the time
-        for i in range(NumberParticles):
-            for j in range(Dimension):
-                PositionNew[i,j] = PositionOld[i,j]+normalvariate(0.0,1.0)*sqrt(TimeStep)+\
-                                       QuantumForceOld[i,j]*TimeStep*D
-            wfnew = WaveFunction(PositionNew,a,b,w)
-            QuantumForceNew = QuantumForce(PositionNew,a,b,w)
-            
-            GreensFunction = 0.0
-            for j in range(Dimension):
-                GreensFunction += 0.5*(QuantumForceOld[i,j]+QuantumForceNew[i,j])*\
-                                      (D*TimeStep*0.5*(QuantumForceOld[i,j]-QuantumForceNew[i,j])-\
-                                      PositionNew[i,j]+PositionOld[i,j])
-      
-            GreensFunction = exp(GreensFunction)
-            ProbabilityRatio = GreensFunction*wfnew**2/wfold**2
-            #Metropolis-Hastings test to see whether we accept the move
-            if random() <= ProbabilityRatio:
-                for j in range(Dimension):
-                    PositionOld[i,j] = PositionNew[i,j]
-                    QuantumForceOld[i,j] = QuantumForceNew[i,j]
-                wfold = wfnew
-        #print("wf new:        ", wfnew)
-        #print("force on 1 new:", QuantumForceNew[0,:])
-        #print("pos of 1 new:  ", PositionNew[0,:])
-        #print("force on 2 new:", QuantumForceNew[1,:])
-        #print("pos of 2 new:  ", PositionNew[1,:])
-        DeltaE = LocalEnergy(PositionOld,a,b,w)
-        DerPsi = DerivativeWFansatz(PositionOld,a,b,w)
-        
-        DeltaPsi[0] += DerPsi[0]
-        DeltaPsi[1] += DerPsi[1]
-        DeltaPsi[2] += DerPsi[2]
-        
-        energy += DeltaE
-
-        DerivativePsiE[0] += DerPsi[0]*DeltaE
-        DerivativePsiE[1] += DerPsi[1]*DeltaE
-        DerivativePsiE[2] += DerPsi[2]*DeltaE
-            
-    # We calculate mean values
-    energy /= NumberMCcycles
-    DerivativePsiE[0] /= NumberMCcycles
-    DerivativePsiE[1] /= NumberMCcycles
-    DerivativePsiE[2] /= NumberMCcycles
-    DeltaPsi[0] /= NumberMCcycles
-    DeltaPsi[1] /= NumberMCcycles
-    DeltaPsi[2] /= NumberMCcycles
-    EnergyDer[0]  = 2*(DerivativePsiE[0]-DeltaPsi[0]*energy)
-    EnergyDer[1]  = 2*(DerivativePsiE[1]-DeltaPsi[1]*energy)
-    EnergyDer[2]  = 2*(DerivativePsiE[2]-DeltaPsi[2]*energy)
-    return energy, EnergyDer
-
-
-#Here starts the main program with variable declarations
-NumberParticles = 2
-Dimension = 2
-NumberHidden = 2
-
-interaction=False
-
-# guess for parameters
-a=np.random.normal(loc=0.0, scale=0.001, size=(NumberParticles,Dimension))
-b=np.random.normal(loc=0.0, scale=0.001, size=(NumberHidden))
-w=np.random.normal(loc=0.0, scale=0.001, size=(NumberParticles,Dimension,NumberHidden))
-# Set up iteration using stochastic gradient method
-Energy = 0
-EDerivative = np.empty((3,),dtype=object)
-EDerivative = [np.copy(a),np.copy(b),np.copy(w)]
-# Learning rate eta, max iterations, need to change to adaptive learning rate
-eta = 0.001
-MaxIterations = 50
-iter = 0
-np.seterr(invalid='raise')
-Energies = np.zeros(MaxIterations)
-EnergyDerivatives1 = np.zeros(MaxIterations)
-EnergyDerivatives2 = np.zeros(MaxIterations)
-
-while iter < MaxIterations:
-    Energy, EDerivative = EnergyMinimization(a,b,w)
-    agradient = EDerivative[0]
-    bgradient = EDerivative[1]
-    wgradient = EDerivative[2]
-    a -= eta*agradient
-    b -= eta*bgradient 
-    w -= eta*wgradient 
-    Energies[iter] = Energy
-    print("Energy:",Energy)
-    #EnergyDerivatives1[iter] = EDerivative[0] 
-    #EnergyDerivatives2[iter] = EDerivative[1]
-    #EnergyDerivatives3[iter] = EDerivative[2] 
-
-
-    iter += 1
-
-#nice printout with Pandas
-import pandas as pd
-from pandas import DataFrame
-pd.set_option('max_columns', 6)
-data ={'Energy':Energies}#,'A Derivative':EnergyDerivatives1,'B Derivative':EnergyDerivatives2,'Weights Derivative':EnergyDerivatives3}
-
-frame = pd.DataFrame(data)
-print(frame)
+for iter in range(Niterations):
+    gradients = training_gradient(beta)
+    beta -= invH @ gradients
+    print(iter,gradients[0],gradients[1])
+print("beta from own Newton code")
+print(beta)
 !ec
+
+
+
+===== Including Stochastic Gradient Descent with Autograd =====
+In this code we include the stochastic gradient descent approach discussed above. Note here that we specify which argument we are taking the derivative with respect to when using _autograd_.
+
+!bc pycod
+# Using Autograd to calculate gradients using SGD
+# OLS example
+from random import random, seed
+import numpy as np
+import autograd.numpy as np
+import matplotlib.pyplot as plt
+from autograd import grad
+
+# Note change from previous example
+def CostOLS(y,X,theta):
+    return np.sum((y-X @ theta)**2)
+
+n = 100
+x = 2*np.random.rand(n,1)
+y = 4+3*x+np.random.randn(n,1)
+
+X = np.c_[np.ones((n,1)), x]
+XT_X = X.T @ X
+theta_linreg = np.linalg.pinv(XT_X) @ (X.T @ y)
+print("Own inversion")
+print(theta_linreg)
+# Hessian matrix
+H = (2.0/n)* XT_X
+EigValues, EigVectors = np.linalg.eig(H)
+print(f"Eigenvalues of Hessian Matrix:{EigValues}")
+
+theta = np.random.randn(2,1)
+eta = 1.0/np.max(EigValues)
+Niterations = 1000
+
+# Note that we request the derivative wrt third argument (theta, 2 here)
+training_gradient = grad(CostOLS,2)
+
+for iter in range(Niterations):
+    gradients = (1.0/n)*training_gradient(y, X, theta)
+    theta -= eta*gradients
+print("theta from own gd")
+print(theta)
+
+xnew = np.array([[0],[2]])
+Xnew = np.c_[np.ones((2,1)), xnew]
+ypredict = Xnew.dot(theta)
+ypredict2 = Xnew.dot(theta_linreg)
+
+plt.plot(xnew, ypredict, "r-")
+plt.plot(xnew, ypredict2, "b-")
+plt.plot(x, y ,'ro')
+plt.axis([0,2.0,0, 15.0])
+plt.xlabel(r'$x$')
+plt.ylabel(r'$y$')
+plt.title(r'Random numbers ')
+plt.show()
+
+n_epochs = 50
+M = 5   #size of each minibatch
+m = int(n/M) #number of minibatches
+t0, t1 = 5, 50
+def learning_schedule(t):
+    return t0/(t+t1)
+
+theta = np.random.randn(2,1)
+
+for epoch in range(n_epochs):
+# Can you figure out a better way of setting up the contributions to each batch?
+    for i in range(m):
+        random_index = M*np.random.randint(m)
+        xi = X[random_index:random_index+M]
+        yi = y[random_index:random_index+M]
+        gradients = (1.0/M)*training_gradient(yi, xi, theta)
+        eta = learning_schedule(epoch*m+i)
+        theta = theta - eta*gradients
+print("theta from own sdg")
+print(theta)
+
+
+!ec
+
+
+
+===== Same code but now with momentum gradient descent =====
+!bc pycod
+# Using Autograd to calculate gradients using SGD
+# OLS example
+from random import random, seed
+import numpy as np
+import autograd.numpy as np
+import matplotlib.pyplot as plt
+from autograd import grad
+
+# Note change from previous example
+def CostOLS(y,X,theta):
+    return np.sum((y-X @ theta)**2)
+
+n = 100
+x = 2*np.random.rand(n,1)
+y = 4+3*x+np.random.randn(n,1)
+
+X = np.c_[np.ones((n,1)), x]
+XT_X = X.T @ X
+theta_linreg = np.linalg.pinv(XT_X) @ (X.T @ y)
+print("Own inversion")
+print(theta_linreg)
+# Hessian matrix
+H = (2.0/n)* XT_X
+EigValues, EigVectors = np.linalg.eig(H)
+print(f"Eigenvalues of Hessian Matrix:{EigValues}")
+
+theta = np.random.randn(2,1)
+eta = 1.0/np.max(EigValues)
+Niterations = 100
+
+# Note that we request the derivative wrt third argument (theta, 2 here)
+training_gradient = grad(CostOLS,2)
+
+for iter in range(Niterations):
+    gradients = (1.0/n)*training_gradient(y, X, theta)
+    theta -= eta*gradients
+print("theta from own gd")
+print(theta)
+
+
+n_epochs = 50
+M = 5   #size of each minibatch
+m = int(n/M) #number of minibatches
+t0, t1 = 5, 50
+def learning_schedule(t):
+    return t0/(t+t1)
+
+theta = np.random.randn(2,1)
+
+change = 0.0
+delta_momentum = 0.3
+
+for epoch in range(n_epochs):
+    for i in range(m):
+        random_index = M*np.random.randint(m)
+        xi = X[random_index:random_index+M]
+        yi = y[random_index:random_index+M]
+        gradients = (1.0/M)*training_gradient(yi, xi, theta)
+        eta = learning_schedule(epoch*m+i)
+        # calculate update
+        new_change = eta*gradients+delta_momentum*change
+        # take a step
+        theta -= new_change
+        # save the change
+        change = new_change
+print("theta from own sdg with momentum")
+print(theta)
+!ec
+
+
+
+===== Similar (second order function now) problem but now with AdaGrad =====
+!bc pycod
+# Using Autograd to calculate gradients using AdaGrad and Stochastic Gradient descent
+# OLS example
+from random import random, seed
+import numpy as np
+import autograd.numpy as np
+import matplotlib.pyplot as plt
+from autograd import grad
+
+# Note change from previous example
+def CostOLS(y,X,theta):
+    return np.sum((y-X @ theta)**2)
+
+n = 10000
+x = np.random.rand(n,1)
+y = 2.0+3*x +4*x*x# +np.random.randn(n,1)
+
+X = np.c_[np.ones((n,1)), x, x*x]
+XT_X = X.T @ X
+theta_linreg = np.linalg.pinv(XT_X) @ (X.T @ y)
+print("Own inversion")
+print(theta_linreg)
+
+
+# Note that we request the derivative wrt third argument (theta, 2 here)
+training_gradient = grad(CostOLS,2)
+# Define parameters for Stochastic Gradient Descent
+n_epochs = 50
+M = 5   #size of each minibatch
+m = int(n/M) #number of minibatches
+# Guess for unknown parameters theta
+theta = np.random.randn(3,1)
+
+# Value for learning rate
+eta = 0.01
+# Including AdaGrad parameter to avoid possible division by zero
+delta  = 1e-8
+for epoch in range(n_epochs):
+    # The outer product is calculated from scratch for each epoch
+    Giter = np.zeros(shape=(3,3))
+    for i in range(m):
+        random_index = M*np.random.randint(m)
+        xi = X[random_index:random_index+M]
+        yi = y[random_index:random_index+M]
+        gradients = (1.0/M)*training_gradient(yi, xi, theta)
+	# Calculate the outer product of the gradients
+        Giter +=gradients @ gradients.T
+	# Simpler algorithm with only diagonal elements
+        Ginverse = np.c_[eta/(delta+np.sqrt(np.diagonal(Giter)))]
+        # compute update
+        update = np.multiply(Ginverse,gradients)
+        theta -= update
+print("theta from own AdaGrad")
+print(theta)
+!ec
+
+Running this code we note an almost perfect agreement with the results from matrix inversion.
+
+
+=====  RMSprop for adaptive learning rate with Stochastic Gradient Descent =====
+!bc pycod
+# Using Autograd to calculate gradients using RMSprop  and Stochastic Gradient descent
+# OLS example
+from random import random, seed
+import numpy as np
+import autograd.numpy as np
+import matplotlib.pyplot as plt
+from autograd import grad
+
+# Note change from previous example
+def CostOLS(y,X,theta):
+    return np.sum((y-X @ theta)**2)
+
+n = 10000
+x = np.random.rand(n,1)
+y = 2.0+3*x +4*x*x# +np.random.randn(n,1)
+
+X = np.c_[np.ones((n,1)), x, x*x]
+XT_X = X.T @ X
+theta_linreg = np.linalg.pinv(XT_X) @ (X.T @ y)
+print("Own inversion")
+print(theta_linreg)
+
+
+# Note that we request the derivative wrt third argument (theta, 2 here)
+training_gradient = grad(CostOLS,2)
+# Define parameters for Stochastic Gradient Descent
+n_epochs = 50
+M = 5   #size of each minibatch
+m = int(n/M) #number of minibatches
+# Guess for unknown parameters theta
+theta = np.random.randn(3,1)
+
+# Value for learning rate
+eta = 0.01
+# Value for parameter rho
+rho = 0.99
+# Including AdaGrad parameter to avoid possible division by zero
+delta  = 1e-8
+for epoch in range(n_epochs):
+    Giter = np.zeros(shape=(3,3))
+    for i in range(m):
+        random_index = M*np.random.randint(m)
+        xi = X[random_index:random_index+M]
+        yi = y[random_index:random_index+M]
+        gradients = (1.0/M)*training_gradient(yi, xi, theta)
+	# Previous value for the outer product of gradients
+        Previous = Giter
+	# Accumulated gradient
+        Giter +=gradients @ gradients.T
+	# Scaling with rho the new and the previous results
+        Gnew = (rho*Previous+(1-rho)*Giter)
+	# Taking the diagonal only and inverting
+        Ginverse = np.c_[eta/(delta+np.sqrt(np.diagonal(Gnew)))]
+	# Hadamard product
+        update = np.multiply(Ginverse,gradients)
+        theta -= update
+print("theta from own RMSprop")
+print(theta)
+!ec
+
+
+
+===== And Logistic Regression =====
+
+!bc pycod
+import autograd.numpy as np
+from autograd import grad
+
+def sigmoid(x):
+    return 0.5 * (np.tanh(x / 2.) + 1)
+
+def logistic_predictions(weights, inputs):
+    # Outputs probability of a label being true according to logistic model.
+    return sigmoid(np.dot(inputs, weights))
+
+def training_loss(weights):
+    # Training loss is the negative log-likelihood of the training labels.
+    preds = logistic_predictions(weights, inputs)
+    label_probabilities = preds * targets + (1 - preds) * (1 - targets)
+    return -np.sum(np.log(label_probabilities))
+
+# Build a toy dataset.
+inputs = np.array([[0.52, 1.12,  0.77],
+                   [0.88, -1.08, 0.15],
+                   [0.52, 0.06, -1.30],
+                   [0.74, -2.49, 1.39]])
+targets = np.array([True, True, False, True])
+
+# Define a function that returns gradients of training loss using Autograd.
+training_gradient_fun = grad(training_loss)
+
+# Optimize weights using gradient descent.
+weights = np.array([0.0, 0.0, 0.0])
+print("Initial loss:", training_loss(weights))
+for i in range(100):
+    weights -= training_gradient_fun(weights) * 0.01
+
+print("Trained loss:", training_loss(weights))
+!ec
+
+
+
+===== Introducing "JAX":"https://jax.readthedocs.io/en/latest/" =====
+
+Presently, instead of using _autograd_, we recommend using "JAX":"https://jax.readthedocs.io/en/latest/"
+
+_JAX_ is Autograd and "XLA (Accelerated Linear Algebra))":"https://www.tensorflow.org/xla",
+brought together for high-performance numerical computing and machine learning research.
+It provides composable transformations of Python+NumPy programs: differentiate, vectorize, parallelize, Just-In-Time compile to GPU/TPU, and more.
+
+Here's a simple example on how you can use _JAX_ to compute the derivate of the logistic function.
+
+!bc pycod
+import jax.numpy as jnp
+from jax import grad, jit, vmap
+
+def sum_logistic(x):
+  return jnp.sum(1.0 / (1.0 + jnp.exp(-x)))
+
+x_small = jnp.arange(3.)
+derivative_fn = grad(sum_logistic)
+print(derivative_fn(x_small))
+
+!ec
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
