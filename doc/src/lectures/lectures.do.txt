@@ -769,6 +769,75 @@ Recall that the solutions are known via the boundary conditions at
 $i=n_{\mathrm{step}}$ and at the other end point, that is for  $\rho_0$.
 The solution is zero in both cases.
 
+===== The Python code =====
+The code sets up the Hamiltonian matrix by defining the the minimun and maximum values of $r$ with a
+maximum value of integration points.  These are set in the initialization function. It plots the 
+eigenfunctions of the three lowest eigenstates.
+!bc pyscpro
+#Program which solves the one-particle Schrodinger equation 
+#for a potential specified in function
+#potential(). This example is for the harmonic oscillator in 3d
+
+from  matplotlib import pyplot as plt
+import numpy as np
+#Function for initialization of parameters
+def initialize():
+    RMin = 0.0
+    RMax = 10.0
+    lOrbital = 0
+    Dim = 400
+    return RMin, RMax, lOrbital, Dim
+# Here we set up the harmonic oscillator potential
+def potential(r):
+    return r*r
+
+#Get the boundary, orbital momentum and number of integration points
+RMin, RMax, lOrbital, Dim = initialize()
+
+#Initialize constants
+Step    = RMax/(Dim+1)
+DiagConst = 2.0 / (Step*Step)
+NondiagConst =  -1.0 / (Step*Step)
+OrbitalFactor = lOrbital * (lOrbital + 1.0)
+
+#Calculate array of potential values
+v = np.zeros(Dim)
+r = np.linspace(RMin,RMax,Dim)
+for i in range(Dim):
+    r[i] = RMin + (i+1) * Step;
+    v[i] = potential(r[i]) + OrbitalFactor/(r[i]*r[i]);
+
+#Setting up a tridiagonal matrix and finding eigenvectors and eigenvalues
+Hamiltonian = np.zeros((Dim,Dim))
+Hamiltonian[0,0] = DiagConst + v[0];
+Hamiltonian[0,1] = NondiagConst;
+for i in range(1,Dim-1):
+    Hamiltonian[i,i-1]  = NondiagConst;
+    Hamiltonian[i,i]    = DiagConst + v[i];
+    Hamiltonian[i,i+1]  = NondiagConst;
+Hamiltonian[Dim-1,Dim-2] = NondiagConst;
+Hamiltonian[Dim-1,Dim-1] = DiagConst + v[Dim-1];
+# diagonalize and obtain eigenvalues, not necessarily sorted
+EigValues, EigVectors = np.linalg.eig(Hamiltonian)
+# sort eigenvectors and eigenvalues
+permute = EigValues.argsort()
+EigValues = EigValues[permute]
+EigVectors = EigVectors[:,permute]
+# now plot the results for the three lowest lying eigenstates
+for i in range(3):
+    print (EigValues[i])
+FirstEigvector = EigVectors[:,0]
+SecondEigvector = EigVectors[:,1]
+ThirdEigvector = EigVectors[:,2]
+plt.plot(r, FirstEigvector**2 ,'b-',r, SecondEigvector**2 ,'g-',r, ThirdEigvector**2 ,'r-')
+plt.axis([0,4.6,0.0, 0.025])
+plt.xlabel(r'$r$')
+plt.ylabel(r'Radial probability $r^2|R(r)|^2$')
+plt.title(r'Radial probability distributions for three lowest-lying states')
+plt.savefig('eigenvector.pdf')
+plt.show()
+!ec
+
 
 
 
@@ -6220,12 +6289,659 @@ print(derivative_fn(x_small))
 
 
 
+======= Boltzmann Machines =======
+
+* A generative model can learn to represent and sample from a probability distribution. The core idea is to learn a parametric model of the probability distribution from which the training data was drawn. As an example
+
+  o A model for images could learn to draw new examples of cats and dogs, given a training dataset of images of cats and dogs.
+  o Generate a sample of an ordered or disordered Ising model phase, having been given samples of such phases.
+  o Model the trial function for Monte Carlo calculations
+
+ o Both use gradient-descent based learning procedures for minimizing cost functions
+ o Energy based models don't use backpropagation and automatic differentiation for computing gradients, instead turning to Markov Chain Monte Carlo methods.
+ o DNNs often have several hidden layers. A restricted Boltzmann machine has only one hidden layer, however several RBMs can be stacked to make up Deep Belief Networks, of which they constitute the building blocks.
+
+History: The RBM was developed by amongst others Geoffrey Hinton, called by some the "Godfather of Deep Learning", working with the University of Toronto and Google.
+
+
+
+!bblock
+A BM is what we would call an undirected probabilistic graphical model
+with stochastic continuous or discrete units.
+!eblock
+!bblock
+It is interpreted as a stochastic recurrent neural network where the
+state of each unit(neurons/nodes) depends on the units it is connected
+to. The weights in the network represent thus the strength of the
+interaction between various units/nodes.
+!eblock
+!bblock
+It turns into a Hopfield network if we choose deterministic rather
+than stochastic units. In contrast to a Hopfield network, a BM is a
+so-called generative model. It allows us to generate new samples from
+the learned distribution.
+!eblock
+
+!bblock
+A standard BM network is divided into a set of observable and visible units $\hat{x}$ and a set of unknown hidden units/nodes $\hat{h}$.
+!eblock
+
+!bblock
+Additionally there can be bias nodes for the hidden and visible layers. These biases are normally set to $1$.
+!eblock
+
+!bblock
+BMs are stackable, meaning they cwe can train a BM which serves as input to another BM. We can construct deep networks for learning complex PDFs. The layers can be trained one after another, a feature which makes them popular in deep learning
+!eblock
+
+However, they are often hard to train. This leads to the introduction of so-called restricted BMs, or RBMS.
+Here we take away all lateral connections between nodes in the visible layer as well as connections between nodes in the hidden layer.
+
+
+===== The network =====
+
+_The network layers_:
+  o A function $\mathbf{x}$ that represents the visible layer, a vector of $M$ elements (nodes). This layer represents both what the RBM might be given as training input, and what we want it to be able to reconstruct. This might for example be the pixels of an image, the spin values of the Ising model, or coefficients representing speech.
+  o The function $\mathbf{h}$ represents the hidden, or latent, layer. A vector of $N$ elements (nodes). Also called "feature detectors".
+
+The goal of the hidden layer is to increase the model's expressive power. We encode complex interactions between visible variables by introducing additional, hidden variables that interact with visible degrees of freedom in a simple manner, yet still reproduce the complex correlations between visible degrees in the data once marginalized over (integrated out).
+
+Examples of this trick being employed in physics: 
+  o The Hubbard-Stratonovich transformation
+  o The introduction of ghost fields in gauge theory
+  o Shadow wave functions in Quantum Monte Carlo simulations
+_The network parameters, to be optimized/learned_:
+  o $\mathbf{a}$ represents the visible bias, a vector of same length as $\mathbf{x}$.
+  o $\mathbf{b}$ represents the hidden bias, a vector of same lenght as $\mathbf{h}$.
+  o $W$ represents the interaction weights, a matrix of size $M\times N$.
+
+
+
+=== Joint distribution ===
+The restricted Boltzmann machine is described by a Bolztmann distribution
+!bt
+\begin{align}
+	P_{rbm}(\mathbf{x},\mathbf{h}) = \frac{1}{Z} e^{-\frac{1}{T_0}E(\mathbf{x},\mathbf{h})},
+\end{align}
+!et
+where $Z$ is the normalization constant or partition function, defined as 
+!bt
+\begin{align}
+	Z = \int \int e^{-\frac{1}{T_0}E(\mathbf{x},\mathbf{h})} d\mathbf{x} d\mathbf{h}.
+\end{align}
+!et
+It is common to ignore $T_0$ by setting it to one. 
+
+
+=== Network Elements, the energy function  ===
+
+The function $E(\mathbf{x},\mathbf{h})$ gives the _energy_ of a
+configuration (pair of vectors) $(\mathbf{x}, \mathbf{h})$. The lower
+the energy of a configuration, the higher the probability of it. This
+function also depends on the parameters $\mathbf{a}$, $\mathbf{b}$ and
+$W$. Thus, when we adjust them during the learning procedure, we are
+adjusting the energy function to best fit our problem.
+
+
+
+=== Defining different types of RBMs ===
+
+There are different variants of RBMs, and the differences lie in the types of visible and hidden units we choose as well as in the implementation of the energy function $E(\mathbf{x},\mathbf{h})$. The connection between the nodes in the two layers is given by the weights $w_{ij}$. 
+
+!bblock Binary-Binary RBM:
+
+RBMs were first developed using binary units in both the visible and hidden layer. The corresponding energy function is defined as follows:
+!bt
+\begin{align}
+	E(\mathbf{x}, \mathbf{h}) = - \sum_i^M x_i a_i- \sum_j^N b_j h_j - \sum_{i,j}^{M,N} x_i w_{ij} h_j,
+\end{align}
+!et
+where the binary values taken on by the nodes are most commonly 0 and 1.
+!eblock
+!bblock Gaussian-Binary RBM:
+
+Another varient is the RBM where the visible units are Gaussian while the hidden units remain binary:
+!bt
+\begin{align}
+	E(\mathbf{x}, \mathbf{h}) = \sum_i^M \frac{(x_i - a_i)^2}{2\sigma_i^2} - \sum_j^N b_j h_j - \sum_{i,j}^{M,N} \frac{x_i w_{ij} h_j}{\sigma_i^2}. 
+\end{align}
+!et
+!eblock
+
+
+o RBMs are Useful when we model continuous data (i.e., we wish $\mathbf{x}$ to be continuous)
+o Requires a smaller learning rate, since there's no upper bound to the value a component might take in the reconstruction
+
+Other types of units include:
+ o Softmax and multinomial units
+ o Gaussian visible and hidden units
+ o Binomial units
+ o Rectified linear units
+
+
+
+===== RBMs for the quantum many body problem =====
+
+The idea of applying RBMs to quantum many body problems was presented by G. Carleo and M. Troyer, working with ETH Zurich and Microsoft Research.
+
+Some of their motivation included
+
+* The wave function $\Psi$ is a monolithic mathematical quantity that contains all the information on a quantum state, be it a single particle or a complex molecule. In principle, an exponential amount of information is needed to fully encode a generic many-body quantum state.
+* There are still interesting open problems, including fundamental questions ranging from the dynamical properties of high-dimensional systems to the exact ground-state properties of strongly interacting fermions.
+* The difficulty lies in finding a general strategy to reduce the exponential complexity of the full many-body wave function down to its most essential features. That is
+ o Dimensional reduction
+ o Feature extraction
+* Among the most successful techniques to attack these challenges, artifical neural networks play a prominent role.
+* Want to understand whether an artifical neural network may adapt to describe a quantum system.
+
+
+Carleo and Troyer applied the RBM to the quantum mechanical spin lattice systems of the Ising model and Heisenberg model, with encouraging results. Our goal is to test the method on systems of moving particles. For the spin lattice systems it was natural to use a binary-binary RBM, with the nodes taking values of 1 and -1. For moving particles, on the other hand, we want the visible nodes to be continuous, representing position coordinates. Thus, we start by choosing a Gaussian-binary RBM, where the visible nodes are continuous and hidden nodes take on values of 0 or 1. If eventually we would like the hidden nodes to be continuous as well the rectified linear units seem like the most relevant choice.
+
+
+
+
+===== Representing the wave function =====
+
+The wavefunction should be a probability amplitude depending on
+ $\bm{x}$. The RBM model is given by the joint distribution of
+ $\bm{x}$ and $\bm{h}$
+
+!bt
+\begin{align}
+        F_{rbm}(\mathbf{x},\mathbf{h}) = \frac{1}{Z} e^{-\frac{1}{T_0}E(\mathbf{x},\mathbf{h})}.
+\end{align}
+!et
+
+To find the marginal distribution of $\bm{x}$ we set:
+
+!bt
+\begin{align}
+        F_{rbm}(\mathbf{x}) &= \sum_\mathbf{h} F_{rbm}(\mathbf{x}, \mathbf{h}) \\
+                                &= \frac{1}{Z}\sum_\mathbf{h} e^{-E(\mathbf{x}, \mathbf{h})}.
+\end{align}
+!et
+
+Now this is what we use to represent the wave function, calling it a neural-network quantum state (NQS)
+!bt
+\begin{align}
+        \Psi (\mathbf{X}) &= F_{rbm}(\mathbf{x}) \\
+        &= \frac{1}{Z}\sum_{\bm{h}} e^{-E(\mathbf{x}, \mathbf{h})} \\
+        &= \frac{1}{Z} \sum_{\{h_j\}} e^{-\sum_i^M \frac{(x_i - a_i)^2}{2\sigma^2} + \sum_j^N b_j h_j + \sum_\
+{i,j}^{M,N} \frac{x_i w_{ij} h_j}{\sigma^2}} \\
+        &= \frac{1}{Z} e^{-\sum_i^M \frac{(x_i - a_i)^2}{2\sigma^2}} \prod_j^N (1 + e^{b_j + \sum_i^M \frac{x\
+_i w_{ij}}{\sigma^2}}). \\
+\end{align}
+!et
+
+===== Choose the cost function =====
+
+Now we don't necessarily have training data (unless we generate it by using some other method). However, what we do have is the variational principle which allows us to obtain the ground state wave function by minimizing the expectation value of the energy of a trial wavefunction (corresponding to the untrained NQS). Similarly to the traditional variational Monte Carlo method then, it is the local energy we wish to minimize. The gradient to use for the stochastic gradient descent procedure is
+
+!bt
+\begin{align}
+	C_i = \frac{\partial \langle E_L \rangle}{\partial \theta_i}
+	= 2(\langle E_L \frac{1}{\Psi}\frac{\partial \Psi}{\partial \theta_i} \rangle - \langle E_L \rangle \langle \frac{1}{\Psi}\frac{\partial \Psi}{\partial \theta_i} \rangle ),
+\end{align}
+!et
+where the local energy is given by
+!bt
+\begin{align}
+	E_L = \frac{1}{\Psi} \hat{\mathbf{H}} \Psi.
+\end{align}
+!et
+
+===== Neural Quantum States =====
+
+
+The wavefunction should be a probability amplitude depending on $\bm{x}$. The RBM model is given by the joint distribution of $\bm{x}$ and $\bm{h}$
+!bt
+\begin{align}
+	F_{rbm}(\bm{x},\mathbf{h}) = \frac{1}{Z} e^{-\frac{1}{T_0}E(\bm{x},\mathbf{h})}
+\end{align}
+!et
+To find the marginal distribution of $\bm{x}$ we set:
+
+!bt
+\begin{align}
+	F_{rbm}(\mathbf{x}) &= \sum_\mathbf{h} F_{rbm}(\mathbf{x}, \mathbf{h}) \\
+				&= \frac{1}{Z}\sum_\mathbf{h} e^{-E(\mathbf{x}, \mathbf{h})}
+\end{align}
+!et
+
+Now this is what we use to represent the wave function, calling it a neural-network quantum state (NQS)
+
+!bt
+\begin{align}
+	\Psi (\mathbf{X}) &= F_{rbm}(\mathbf{x}) \\
+	&= \frac{1}{Z}\sum_{\bm{h}} e^{-E(\mathbf{x}, \mathbf{h})} \\
+	&= \frac{1}{Z} \sum_{\{h_j\}} e^{-\sum_i^M \frac{(x_i - a_i)^2}{2\sigma^2} + \sum_j^N b_j h_j + \sum_{i,j}^{M,N} \frac{x_i w_{ij} h_j}{\sigma^2}} \\
+	&= \frac{1}{Z} e^{-\sum_i^M \frac{(x_i - a_i)^2}{2\sigma^2}} \prod_j^N (1 + e^{b_j + \sum_i^M \frac{x_i w_{ij}}{\sigma^2}}) \\
+\end{align}
+!et
+
+The above wavefunction is the most general one because it allows for
+complex valued wavefunctions. However it fundamentally changes the
+probabilistic foundation of the RBM, because what is usually a
+probability in the RBM framework is now a an amplitude. This means
+that a lot of the theoretical framework usually used to interpret the
+model, i.e. graphical models, conditional probabilities, and Markov
+random fields, breaks down. If we assume the wavefunction to be
+postive definite, however, we can use the RBM to represent the squared
+wavefunction, and thereby a probability. This also makes it possible
+to sample from the model using Gibbs sampling, because we can obtain
+the conditional probabilities.
+
+!bt
+\begin{align}
+	|\Psi (\mathbf{X})|^2 &= F_{rbm}(\mathbf{X}) \\
+	\Rightarrow \Psi (\mathbf{X}) &= \sqrt{F_{rbm}(\mathbf{X})} \\
+	&= \frac{1}{\sqrt{Z}}\sqrt{\sum_{\{h_j\}} e^{-E(\mathbf{X}, \mathbf{h})}} \\
+	&= \frac{1}{\sqrt{Z}} \sqrt{\sum_{\{h_j\}} e^{-\sum_i^M \frac{(X_i - a_i)^2}{2\sigma^2} + \sum_j^N b_j h_j + \sum_{i,j}^{M,N} \frac{X_i w_{ij} h_j}{\sigma^2}} }\\
+	&= \frac{1}{\sqrt{Z}} e^{-\sum_i^M \frac{(X_i - a_i)^2}{4\sigma^2}} \sqrt{\sum_{\{h_j\}} \prod_j^N e^{b_j h_j + \sum_i^M \frac{X_i w_{ij} h_j}{\sigma^2}}} \\
+	&= \frac{1}{\sqrt{Z}} e^{-\sum_i^M \frac{(X_i - a_i)^2}{4\sigma^2}} \sqrt{\prod_j^N \sum_{h_j}  e^{b_j h_j + \sum_i^M \frac{X_i w_{ij} h_j}{\sigma^2}}} \\
+	&= \frac{1}{\sqrt{Z}} e^{-\sum_i^M \frac{(X_i - a_i)^2}{4\sigma^2}} \prod_j^N \sqrt{e^0 + e^{b_j + \sum_i^M \frac{X_i w_{ij}}{\sigma^2}}} \\
+	&= \frac{1}{\sqrt{Z}} e^{-\sum_i^M \frac{(X_i - a_i)^2}{4\sigma^2}} \prod_j^N \sqrt{1 + e^{b_j + \sum_i^M \frac{X_i w_{ij}}{\sigma^2}}} \\
+\end{align}
+!et
+
+=== Cost function ===
+
+This is where we deviate from what is common in machine
+learning. Rather than defining a cost function based on some dataset,
+our cost function is the energy of the quantum mechanical system. From
+the variational principle we know that minizing this energy should
+lead to the ground state wavefunction. As stated previously the local
+energy is given by
+
+!bt
+\begin{align}
+	E_L = \frac{1}{\Psi} \hat{\mathbf{H}} \Psi,
+\end{align}
+!et
+and the gradient is
+
+!bt
+\begin{align}
+	G_i = \frac{\partial \langle E_L \rangle}{\partial \alpha_i}
+	= 2(\langle E_L \frac{1}{\Psi}\frac{\partial \Psi}{\partial \alpha_i} \rangle - \langle E_L \rangle \langle \frac{1}{\Psi}\frac{\partial \Psi}{\partial \alpha_i} \rangle ),
+\end{align}
+!et
+where $\alpha_i = a_1,...,a_M,b_1,...,b_N,w_{11},...,w_{MN}$.
+
+
+We use that $\frac{1}{\Psi}\frac{\partial \Psi}{\partial \alpha_i} 
+	= \frac{\partial \ln{\Psi}}{\partial \alpha_i}$,
+and find
+
+!bt
+\begin{align}
+	\ln{\Psi({\mathbf{X}})} &= -\ln{Z} - \sum_m^M \frac{(X_m - a_m)^2}{2\sigma^2}
+	+ \sum_n^N \ln({1 + e^{b_n + \sum_i^M \frac{X_i w_{in}}{\sigma^2}})}.
+\end{align}
+!et
+
+This gives
+
+!bt
+\begin{align}
+	\frac{\partial }{\partial a_m} \ln\Psi
+	&= 	\frac{1}{\sigma^2} (X_m - a_m) \\
+	\frac{\partial }{\partial b_n} \ln\Psi
+	&=
+	\frac{1}{e^{-b_n-\frac{1}{\sigma^2}\sum_i^M X_i w_{in}} + 1} \\
+	\frac{\partial }{\partial w_{mn}} \ln\Psi
+	&= \frac{X_m}{\sigma^2(e^{-b_n-\frac{1}{\sigma^2}\sum_i^M X_i w_{in}} + 1)}.
+\end{align}
+!et
+
+If $\Psi = \sqrt{F_{rbm}}$ we have
+
+!bt
+\begin{align}
+	\ln{\Psi({\mathbf{X}})} &= -\frac{1}{2}\ln{Z} - \sum_m^M \frac{(X_m - a_m)^2}{4\sigma^2}
+	+ \frac{1}{2}\sum_n^N \ln({1 + e^{b_n + \sum_i^M \frac{X_i w_{in}}{\sigma^2}})},
+\end{align}
+!et
+which results in
+
+!bt
+\begin{align}
+	\frac{\partial }{\partial a_m} \ln\Psi
+	&= 	\frac{1}{2\sigma^2} (X_m - a_m) \\
+	\frac{\partial }{\partial b_n} \ln\Psi
+	&=
+	\frac{1}{2(e^{-b_n-\frac{1}{\sigma^2}\sum_i^M X_i w_{in}} + 1)} \\
+	\frac{\partial }{\partial w_{mn}} \ln\Psi
+	&= \frac{X_m}{2\sigma^2(e^{-b_n-\frac{1}{\sigma^2}\sum_i^M X_i w_{in}} + 1)}.
+\end{align}
+!et
+
+
+Let us assume again that our Hamiltonian is 
+!bt
+\begin{align}
+	\hat{\mathbf{H}} = \sum_p^P (-\frac{1}{2}\nabla_p^2 + \frac{1}{2}\omega^2 r_p^2 ) + \sum_{p<q} \frac{1}{r_{pq}},
+\end{align}
+!et
+
+
+where the first summation term represents the standard harmonic
+oscillator part and the latter the repulsive interaction between two
+electrons. Natural units ($\hbar=c=e=m_e=1$) are used, and $P$ is the
+number of particles. This gives us the following expression for the
+local energy ($D$ being the number of dimensions)
+
+!bt
+\begin{align}
+	E_L &= \frac{1}{\Psi} \mathbf{H} \Psi \\
+	&= \frac{1}{\Psi} (\sum_p^P (-\frac{1}{2}\nabla_p^2 + \frac{1}{2}\omega^2 r_p^2 ) + \sum_{p<q} \frac{1}{r_{pq}}) \Psi \\
+	&= -\frac{1}{2}\frac{1}{\Psi} \sum_p^P \nabla_p^2 \Psi 
+	+ \frac{1}{2}\omega^2 \sum_p^P  r_p^2  + \sum_{p<q} \frac{1}{r_{pq}} \\
+	&= -\frac{1}{2}\frac{1}{\Psi} \sum_p^P \sum_d^D \frac{\partial^2 \Psi}{\partial x_{pd}^2} + \frac{1}{2}\omega^2 \sum_p^P  r_p^2  + \sum_{p<q} \frac{1}{r_{pq}} \\
+	&= \frac{1}{2} \sum_p^P \sum_d^D (-(\frac{\partial}{\partial x_{pd}} \ln\Psi)^2 -\frac{\partial^2}{\partial x_{pd}^2} \ln\Psi + \omega^2 x_{pd}^2)  + \sum_{p<q} \frac{1}{r_{pq}}. \\
+\end{align}
+!et
+
+
+Letting each visible node in the Boltzmann machine 
+represent one coordinate of one particle, we obtain
+
+!bt
+\begin{align}
+	E_L &=
+	\frac{1}{2} \sum_m^M (-(\frac{\partial}{\partial v_m} \ln\Psi)^2 -\frac{\partial^2}{\partial v_m^2} \ln\Psi + \omega^2 v_m^2)  + \sum_{p<q} \frac{1}{r_{pq}},
+\end{align}
+!et
+where we have that
+
+!bt
+\begin{align}
+	\frac{\partial}{\partial x_m} \ln\Psi
+	&= - \frac{1}{\sigma^2}(x_m - a_m) + \frac{1}{\sigma^2} \sum_n^N \frac{w_{mn}}{e^{-b_n - \frac{1}{\sigma^2}\sum_i^M x_i w_{in}} + 1} \\
+	\frac{\partial^2}{\partial x_m^2} \ln\Psi
+	&= - \frac{1}{\sigma^2} + \frac{1}{\sigma^4}\sum_n^N \omega_{mn}^2 \frac{e^{b_n + \frac{1}{\sigma^2}\sum_i^M x_i w_{in}}}{(e^{b_n + \frac{1}{\sigma^2}\sum_i^M x_i w_{in}} + 1)^2}.
+\end{align}
+!et
+
+We now have all the expressions neeeded to calculate the gradient of
+the expected local energy with respect to the RBM parameters
+$\frac{\partial \langle E_L \rangle}{\partial \alpha_i}$.
+
+If we use $\Psi = \sqrt{F_{rbm}}$ we obtain
+!bt
+\begin{align}
+	\frac{\partial}{\partial x_m} \ln\Psi
+	&= - \frac{1}{2\sigma^2}(x_m - a_m) + \frac{1}{2\sigma^2} \sum_n^N
+ 	\frac{w_{mn}}{e^{-b_n-\frac{1}{\sigma^2}\sum_i^M x_i w_{in}} + 1}
+	\\
+	\frac{\partial^2}{\partial x_m^2} \ln\Psi
+	&= - \frac{1}{2\sigma^2} + \frac{1}{2\sigma^4}\sum_n^N \omega_{mn}^2 \frac{e^{b_n + \frac{1}{\sigma^2}\sum_i^M x_i w_{in}}}{(e^{b_n + \frac{1}{\sigma^2}\sum_i^M x_i w_{in}} + 1)^2}.
+\end{align}
+!et
+The difference between this equation and the previous one is that we multiply by a factor $1/2$.
 
 
 
 
 
+===== Python version for the two non-interacting particles =====
+
+!bc pycod
+# 2-electron VMC code for 2dim quantum dot with importance sampling
+# Using gaussian rng for new positions and Metropolis- Hastings 
+# Added restricted boltzmann machine method for dealing with the wavefunction
+# RBM code based heavily off of:
+# https://github.com/CompPhysics/ComputationalPhysics2/tree/gh-pages/doc/Programs/BoltzmannMachines/MLcpp/src/CppCode/ob
+from math import exp, sqrt
+from random import random, seed, normalvariate
+import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
+from matplotlib.ticker import LinearLocator, FormatStrFormatter
+import sys
 
 
 
+# Trial wave function for the 2-electron quantum dot in two dims
+def WaveFunction(r,a,b,w):
+    sigma=1.0
+    sig2 = sigma**2
+    Psi1 = 0.0
+    Psi2 = 1.0
+    Q = Qfac(r,b,w)
+    
+    for iq in range(NumberParticles):
+        for ix in range(Dimension):
+            Psi1 += (r[iq,ix]-a[iq,ix])**2
+            
+    for ih in range(NumberHidden):
+        Psi2 *= (1.0 + np.exp(Q[ih]))
+        
+    Psi1 = np.exp(-Psi1/(2*sig2))
+
+    return Psi1*Psi2
+
+# Local energy  for the 2-electron quantum dot in two dims, using analytical local energy
+def LocalEnergy(r,a,b,w):
+    sigma=1.0
+    sig2 = sigma**2
+    locenergy = 0.0
+    
+    Q = Qfac(r,b,w)
+
+    for iq in range(NumberParticles):
+        for ix in range(Dimension):
+            sum1 = 0.0
+            sum2 = 0.0
+            for ih in range(NumberHidden):
+                sum1 += w[iq,ix,ih]/(1+np.exp(-Q[ih]))
+                sum2 += w[iq,ix,ih]**2 * np.exp(Q[ih]) / (1.0 + np.exp(Q[ih]))**2
+    
+            dlnpsi1 = -(r[iq,ix] - a[iq,ix]) /sig2 + sum1/sig2
+            dlnpsi2 = -1/sig2 + sum2/sig2**2
+            locenergy += 0.5*(-dlnpsi1*dlnpsi1 - dlnpsi2 + r[iq,ix]**2)
+            
+    if(interaction==True):
+        for iq1 in range(NumberParticles):
+            for iq2 in range(iq1):
+                distance = 0.0
+                for ix in range(Dimension):
+                    distance += (r[iq1,ix] - r[iq2,ix])**2
+                    
+                locenergy += 1/sqrt(distance)
+                
+    return locenergy
+
+# Derivate of wave function ansatz as function of variational parameters
+def DerivativeWFansatz(r,a,b,w):
+    
+    sigma=1.0
+    sig2 = sigma**2
+    
+    Q = Qfac(r,b,w)
+    
+    WfDer = np.empty((3,),dtype=object)
+    WfDer = [np.copy(a),np.copy(b),np.copy(w)]
+    
+    WfDer[0] = (r-a)/sig2
+    WfDer[1] = 1 / (1 + np.exp(-Q))
+    
+    for ih in range(NumberHidden):
+        WfDer[2][:,:,ih] = w[:,:,ih] / (sig2*(1+np.exp(-Q[ih])))
+            
+    return  WfDer
+
+# Setting up the quantum force for the two-electron quantum dot, recall that it is a vector
+def QuantumForce(r,a,b,w):
+
+    sigma=1.0
+    sig2 = sigma**2
+    
+    qforce = np.zeros((NumberParticles,Dimension), np.double)
+    sum1 = np.zeros((NumberParticles,Dimension), np.double)
+    
+    Q = Qfac(r,b,w)
+    
+    for ih in range(NumberHidden):
+        sum1 += w[:,:,ih]/(1+np.exp(-Q[ih]))
+    
+    qforce = 2*(-(r-a)/sig2 + sum1/sig2)
+    
+    return qforce
+    
+def Qfac(r,b,w):
+    Q = np.zeros((NumberHidden), np.double)
+    temp = np.zeros((NumberHidden), np.double)
+    
+    for ih in range(NumberHidden):
+        temp[ih] = (r*w[:,:,ih]).sum()
+        
+    Q = b + temp
+    
+    return Q
+    
+# Computing the derivative of the energy and the energy 
+def EnergyMinimization(a,b,w):
+
+    NumberMCcycles= 10000
+    # Parameters in the Fokker-Planck simulation of the quantum force
+    D = 0.5
+    TimeStep = 0.05
+    # positions
+    PositionOld = np.zeros((NumberParticles,Dimension), np.double)
+    PositionNew = np.zeros((NumberParticles,Dimension), np.double)
+    # Quantum force
+    QuantumForceOld = np.zeros((NumberParticles,Dimension), np.double)
+    QuantumForceNew = np.zeros((NumberParticles,Dimension), np.double)
+
+    # seed for rng generator 
+    seed()
+    energy = 0.0
+    DeltaE = 0.0
+
+    EnergyDer = np.empty((3,),dtype=object)
+    DeltaPsi = np.empty((3,),dtype=object)
+    DerivativePsiE = np.empty((3,),dtype=object)
+    EnergyDer = [np.copy(a),np.copy(b),np.copy(w)]
+    DeltaPsi = [np.copy(a),np.copy(b),np.copy(w)]
+    DerivativePsiE = [np.copy(a),np.copy(b),np.copy(w)]
+    for i in range(3): EnergyDer[i].fill(0.0)
+    for i in range(3): DeltaPsi[i].fill(0.0)
+    for i in range(3): DerivativePsiE[i].fill(0.0)
+
+    
+    #Initial position
+    for i in range(NumberParticles):
+        for j in range(Dimension):
+            PositionOld[i,j] = normalvariate(0.0,1.0)*sqrt(TimeStep)
+    wfold = WaveFunction(PositionOld,a,b,w)
+    QuantumForceOld = QuantumForce(PositionOld,a,b,w)
+
+    #Loop over MC MCcycles
+    for MCcycle in range(NumberMCcycles):
+        #Trial position moving one particle at the time
+        for i in range(NumberParticles):
+            for j in range(Dimension):
+                PositionNew[i,j] = PositionOld[i,j]+normalvariate(0.0,1.0)*sqrt(TimeStep)+\
+                                       QuantumForceOld[i,j]*TimeStep*D
+            wfnew = WaveFunction(PositionNew,a,b,w)
+            QuantumForceNew = QuantumForce(PositionNew,a,b,w)
+            
+            GreensFunction = 0.0
+            for j in range(Dimension):
+                GreensFunction += 0.5*(QuantumForceOld[i,j]+QuantumForceNew[i,j])*\
+                                      (D*TimeStep*0.5*(QuantumForceOld[i,j]-QuantumForceNew[i,j])-\
+                                      PositionNew[i,j]+PositionOld[i,j])
+      
+            GreensFunction = exp(GreensFunction)
+            ProbabilityRatio = GreensFunction*wfnew**2/wfold**2
+            #Metropolis-Hastings test to see whether we accept the move
+            if random() <= ProbabilityRatio:
+                for j in range(Dimension):
+                    PositionOld[i,j] = PositionNew[i,j]
+                    QuantumForceOld[i,j] = QuantumForceNew[i,j]
+                wfold = wfnew
+        #print("wf new:        ", wfnew)
+        #print("force on 1 new:", QuantumForceNew[0,:])
+        #print("pos of 1 new:  ", PositionNew[0,:])
+        #print("force on 2 new:", QuantumForceNew[1,:])
+        #print("pos of 2 new:  ", PositionNew[1,:])
+        DeltaE = LocalEnergy(PositionOld,a,b,w)
+        DerPsi = DerivativeWFansatz(PositionOld,a,b,w)
+        
+        DeltaPsi[0] += DerPsi[0]
+        DeltaPsi[1] += DerPsi[1]
+        DeltaPsi[2] += DerPsi[2]
+        
+        energy += DeltaE
+
+        DerivativePsiE[0] += DerPsi[0]*DeltaE
+        DerivativePsiE[1] += DerPsi[1]*DeltaE
+        DerivativePsiE[2] += DerPsi[2]*DeltaE
+            
+    # We calculate mean values
+    energy /= NumberMCcycles
+    DerivativePsiE[0] /= NumberMCcycles
+    DerivativePsiE[1] /= NumberMCcycles
+    DerivativePsiE[2] /= NumberMCcycles
+    DeltaPsi[0] /= NumberMCcycles
+    DeltaPsi[1] /= NumberMCcycles
+    DeltaPsi[2] /= NumberMCcycles
+    EnergyDer[0]  = 2*(DerivativePsiE[0]-DeltaPsi[0]*energy)
+    EnergyDer[1]  = 2*(DerivativePsiE[1]-DeltaPsi[1]*energy)
+    EnergyDer[2]  = 2*(DerivativePsiE[2]-DeltaPsi[2]*energy)
+    return energy, EnergyDer
+
+
+#Here starts the main program with variable declarations
+NumberParticles = 2
+Dimension = 2
+NumberHidden = 2
+
+interaction=False
+
+# guess for parameters
+a=np.random.normal(loc=0.0, scale=0.001, size=(NumberParticles,Dimension))
+b=np.random.normal(loc=0.0, scale=0.001, size=(NumberHidden))
+w=np.random.normal(loc=0.0, scale=0.001, size=(NumberParticles,Dimension,NumberHidden))
+# Set up iteration using stochastic gradient method
+Energy = 0
+EDerivative = np.empty((3,),dtype=object)
+EDerivative = [np.copy(a),np.copy(b),np.copy(w)]
+# Learning rate eta, max iterations, need to change to adaptive learning rate
+eta = 0.001
+MaxIterations = 50
+iter = 0
+np.seterr(invalid='raise')
+Energies = np.zeros(MaxIterations)
+EnergyDerivatives1 = np.zeros(MaxIterations)
+EnergyDerivatives2 = np.zeros(MaxIterations)
+
+while iter < MaxIterations:
+    Energy, EDerivative = EnergyMinimization(a,b,w)
+    agradient = EDerivative[0]
+    bgradient = EDerivative[1]
+    wgradient = EDerivative[2]
+    a -= eta*agradient
+    b -= eta*bgradient 
+    w -= eta*wgradient 
+    Energies[iter] = Energy
+    print("Energy:",Energy)
+    #EnergyDerivatives1[iter] = EDerivative[0] 
+    #EnergyDerivatives2[iter] = EDerivative[1]
+    #EnergyDerivatives3[iter] = EDerivative[2] 
+
+
+    iter += 1
+
+#nice printout with Pandas
+import pandas as pd
+from pandas import DataFrame
+pd.set_option('max_columns', 6)
+data ={'Energy':Energies}#,'A Derivative':EnergyDerivatives1,'B Derivative':EnergyDerivatives2,'Weights Derivative':EnergyDerivatives3}
+
+frame = pd.DataFrame(data)
+print(frame)
+!ec
 

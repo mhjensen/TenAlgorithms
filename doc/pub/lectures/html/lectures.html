@@ -136,6 +136,17 @@ div.toc p,a {
   margin-bottom: 1.1;
 }
 </style>
+<script src="https://sagecell.sagemath.org/static/jquery.min.js"></script>
+<script src="https://sagecell.sagemath.org/embedded_sagecell.js"></script>
+<link rel="stylesheet" type="text/css" href="https://sagecell.sagemath.org/static/sagecell_embed.css">
+<script>
+$(function () {
+   // Make *any* div with class "sage_compute" a Sage cell
+   sagecell.makeSagecell({inputLocation: "div.sage_compute",
+                          evalButtonText: "Evaluate"});
+   document.getElementsByClassName("sage_compute")[0].closest(".input").style.paddingBottom=95;
+});
+</script>
 </head>
 
 <!-- tocinfo
@@ -163,6 +174,7 @@ div.toc p,a {
                None,
                'discussion-of-jacobi-s-method-for-eigenvalues'),
               ('Our system', 2, None, 'our-system'),
+              ('The Python code', 2, None, 'the-python-code'),
               ('Two electrons that interact',
                2,
                None,
@@ -429,7 +441,33 @@ div.toc p,a {
               ('Introducing "JAX":"https://jax.readthedocs.io/en/latest/"',
                2,
                None,
-               'introducing-jax-https-jax-readthedocs-io-en-latest')]}
+               'introducing-jax-https-jax-readthedocs-io-en-latest'),
+              ('Boltzmann Machines', 1, None, 'boltzmann-machines'),
+              ('The network', 2, None, 'the-network'),
+              ('Joint distribution', 3, None, 'joint-distribution'),
+              ('Network Elements, the energy function',
+               3,
+               None,
+               'network-elements-the-energy-function'),
+              ('Defining different types of RBMs',
+               3,
+               None,
+               'defining-different-types-of-rbms'),
+              ('RBMs for the quantum many body problem',
+               2,
+               None,
+               'rbms-for-the-quantum-many-body-problem'),
+              ('Representing the wave function',
+               2,
+               None,
+               'representing-the-wave-function'),
+              ('Choose the cost function', 2, None, 'choose-the-cost-function'),
+              ('Neural Quantum States', 2, None, 'neural-quantum-states'),
+              ('Cost function', 3, None, 'cost-function'),
+              ('Python version for the two non-interacting particles',
+               2,
+               None,
+               'python-version-for-the-two-non-interacting-particles')]}
 end of tocinfo -->
 
 <body>
@@ -1171,6 +1209,95 @@ $$
 \( i=n_{\mathrm{step}} \) and at the other end point, that is for  \( \rho_0 \).
 The solution is zero in both cases.
 </p>
+<h2 id="the-python-code">The Python code </h2>
+<p>The code sets up the Hamiltonian matrix by defining the the minimun and maximum values of \( r \) with a
+maximum value of integration points.  These are set in the initialization function. It plots the 
+eigenfunctions of the three lowest eigenstates.
+</p>
+<div class="cell border-box-sizing code_cell rendered">
+  <div class="input">
+    <div class="inner_cell">
+      <div class="input_area">
+        
+<div class="sage_compute">
+<script type="text/x-sage">
+#Program which solves the one-particle Schrodinger equation 
+#for a potential specified in function
+#potential(). This example is for the harmonic oscillator in 3d
+
+from  matplotlib import pyplot as plt
+import numpy as np
+#Function for initialization of parameters
+def initialize():
+    RMin = 0.0
+    RMax = 10.0
+    lOrbital = 0
+    Dim = 400
+    return RMin, RMax, lOrbital, Dim
+# Here we set up the harmonic oscillator potential
+def potential(r):
+    return r*r
+
+#Get the boundary, orbital momentum and number of integration points
+RMin, RMax, lOrbital, Dim = initialize()
+
+#Initialize constants
+Step    = RMax/(Dim+1)
+DiagConst = 2.0 / (Step*Step)
+NondiagConst =  -1.0 / (Step*Step)
+OrbitalFactor = lOrbital * (lOrbital + 1.0)
+
+#Calculate array of potential values
+v = np.zeros(Dim)
+r = np.linspace(RMin,RMax,Dim)
+for i in range(Dim):
+    r[i] = RMin + (i+1) * Step;
+    v[i] = potential(r[i]) + OrbitalFactor/(r[i]*r[i]);
+
+#Setting up a tridiagonal matrix and finding eigenvectors and eigenvalues
+Hamiltonian = np.zeros((Dim,Dim))
+Hamiltonian[0,0] = DiagConst + v[0];
+Hamiltonian[0,1] = NondiagConst;
+for i in range(1,Dim-1):
+    Hamiltonian[i,i-1]  = NondiagConst;
+    Hamiltonian[i,i]    = DiagConst + v[i];
+    Hamiltonian[i,i+1]  = NondiagConst;
+Hamiltonian[Dim-1,Dim-2] = NondiagConst;
+Hamiltonian[Dim-1,Dim-1] = DiagConst + v[Dim-1];
+# diagonalize and obtain eigenvalues, not necessarily sorted
+EigValues, EigVectors = np.linalg.eig(Hamiltonian)
+# sort eigenvectors and eigenvalues
+permute = EigValues.argsort()
+EigValues = EigValues[permute]
+EigVectors = EigVectors[:,permute]
+# now plot the results for the three lowest lying eigenstates
+for i in range(3):
+    print (EigValues[i])
+FirstEigvector = EigVectors[:,0]
+SecondEigvector = EigVectors[:,1]
+ThirdEigvector = EigVectors[:,2]
+plt.plot(r, FirstEigvector**2 ,'b-',r, SecondEigvector**2 ,'g-',r, ThirdEigvector**2 ,'r-')
+plt.axis([0,4.6,0.0, 0.025])
+plt.xlabel(r'$r$')
+plt.ylabel(r'Radial probability $r^2|R(r)|^2$')
+plt.title(r'Radial probability distributions for three lowest-lying states')
+plt.savefig('eigenvector.pdf')
+plt.show()
+
+</script>
+</div>
+      </div>
+    </div>
+  </div>
+  <div class="output_wrapper">
+    <div class="output">
+      <div class="output_area">
+        <div class="output_subarea output_stream output_stdout output_text">          
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 <h2 id="two-electrons-that-interact">Two electrons that interact  </h2>
 
 <p>We are going to study two electrons in a harmonic oscillator well which
@@ -6965,7 +7092,757 @@ derivative_fn <span style="color: #666666">=</span> grad(sum_logistic)
     </div>
   </div>
 </div>
+<h1 id="boltzmann-machines">Boltzmann Machines </h1>
 
+<ul>
+<li> A generative model can learn to represent and sample from a probability distribution. The core idea is to learn a parametric model of the probability distribution from which the training data was drawn. As an example
+<ol type="a"></li>
+ <li> A model for images could learn to draw new examples of cats and dogs, given a training dataset of images of cats and dogs.</li>
+ <li> Generate a sample of an ordered or disordered Ising model phase, having been given samples of such phases.</li>
+ <li> Model the trial function for Monte Carlo calculations</li>
+</ol>
+<li> Both use gradient-descent based learning procedures for minimizing cost functions</li>
+<li> Energy based models don't use backpropagation and automatic differentiation for computing gradients, instead turning to Markov Chain Monte Carlo methods.</li>
+<li> DNNs often have several hidden layers. A restricted Boltzmann machine has only one hidden layer, however several RBMs can be stacked to make up Deep Belief Networks, of which they constitute the building blocks.</li>
+</ul>
+<p>History: The RBM was developed by amongst others Geoffrey Hinton, called by some the "Godfather of Deep Learning", working with the University of Toronto and Google.</p>
+
+<div class="alert alert-block alert-block alert-text-normal">
+<b></b>
+<p>
+<p>A BM is what we would call an undirected probabilistic graphical model
+with stochastic continuous or discrete units.
+</p>
+</div>
+
+<div class="alert alert-block alert-block alert-text-normal">
+<b></b>
+<p>
+<p>It is interpreted as a stochastic recurrent neural network where the
+state of each unit(neurons/nodes) depends on the units it is connected
+to. The weights in the network represent thus the strength of the
+interaction between various units/nodes.
+</p>
+</div>
+
+<div class="alert alert-block alert-block alert-text-normal">
+<b></b>
+<p>
+<p>It turns into a Hopfield network if we choose deterministic rather
+than stochastic units. In contrast to a Hopfield network, a BM is a
+so-called generative model. It allows us to generate new samples from
+the learned distribution.
+</p>
+</div>
+
+
+<div class="alert alert-block alert-block alert-text-normal">
+<b></b>
+<p>
+<p>A standard BM network is divided into a set of observable and visible units \( \hat{x} \) and a set of unknown hidden units/nodes \( \hat{h} \).</p>
+</div>
+
+
+<div class="alert alert-block alert-block alert-text-normal">
+<b></b>
+<p>
+<p>Additionally there can be bias nodes for the hidden and visible layers. These biases are normally set to \( 1 \).</p>
+</div>
+
+
+<div class="alert alert-block alert-block alert-text-normal">
+<b></b>
+<p>
+<p>BMs are stackable, meaning they cwe can train a BM which serves as input to another BM. We can construct deep networks for learning complex PDFs. The layers can be trained one after another, a feature which makes them popular in deep learning</p>
+</div>
+
+
+<p>However, they are often hard to train. This leads to the introduction of so-called restricted BMs, or RBMS.
+Here we take away all lateral connections between nodes in the visible layer as well as connections between nodes in the hidden layer.
+</p>
+<h2 id="the-network">The network </h2>
+
+<b>The network layers</b>:
+<ol>
+ <li> A function \( \mathbf{x} \) that represents the visible layer, a vector of \( M \) elements (nodes). This layer represents both what the RBM might be given as training input, and what we want it to be able to reconstruct. This might for example be the pixels of an image, the spin values of the Ising model, or coefficients representing speech.</li>
+ <li> The function \( \mathbf{h} \) represents the hidden, or latent, layer. A vector of \( N \) elements (nodes). Also called "feature detectors".</li>
+</ol>
+<p>The goal of the hidden layer is to increase the model's expressive power. We encode complex interactions between visible variables by introducing additional, hidden variables that interact with visible degrees of freedom in a simple manner, yet still reproduce the complex correlations between visible degrees in the data once marginalized over (integrated out).</p>
+
+<p>Examples of this trick being employed in physics: </p>
+<ol>
+ <li> The Hubbard-Stratonovich transformation</li>
+ <li> The introduction of ghost fields in gauge theory</li>
+ <li> Shadow wave functions in Quantum Monte Carlo simulations</li>
+</ol>
+<b>The network parameters, to be optimized/learned</b>:
+<ol>
+ <li> \( \mathbf{a} \) represents the visible bias, a vector of same length as \( \mathbf{x} \).</li>
+ <li> \( \mathbf{b} \) represents the hidden bias, a vector of same lenght as \( \mathbf{h} \).</li>
+ <li> \( W \) represents the interaction weights, a matrix of size \( M\times N \).</li>
+</ol>
+<h3 id="joint-distribution">Joint distribution </h3>
+<p>The restricted Boltzmann machine is described by a Bolztmann distribution</p>
+$$
+\begin{align}
+	P_{rbm}(\mathbf{x},\mathbf{h}) = \frac{1}{Z} e^{-\frac{1}{T_0}E(\mathbf{x},\mathbf{h})},
+\label{_auto16}
+\end{align}
+$$
+
+<p>where \( Z \) is the normalization constant or partition function, defined as </p>
+$$
+\begin{align}
+	Z = \int \int e^{-\frac{1}{T_0}E(\mathbf{x},\mathbf{h})} d\mathbf{x} d\mathbf{h}.
+\label{_auto17}
+\end{align}
+$$
+
+<p>It is common to ignore \( T_0 \) by setting it to one. </p>
+<h3 id="network-elements-the-energy-function">Network Elements, the energy function  </h3>
+
+<p>The function \( E(\mathbf{x},\mathbf{h}) \) gives the <b>energy</b> of a
+configuration (pair of vectors) \( (\mathbf{x}, \mathbf{h}) \). The lower
+the energy of a configuration, the higher the probability of it. This
+function also depends on the parameters \( \mathbf{a} \), \( \mathbf{b} \) and
+\( W \). Thus, when we adjust them during the learning procedure, we are
+adjusting the energy function to best fit our problem.
+</p>
+<h3 id="defining-different-types-of-rbms">Defining different types of RBMs </h3>
+
+<p>There are different variants of RBMs, and the differences lie in the types of visible and hidden units we choose as well as in the implementation of the energy function \( E(\mathbf{x},\mathbf{h}) \). The connection between the nodes in the two layers is given by the weights \( w_{ij} \). </p>
+
+<div class="alert alert-block alert-block alert-text-normal">
+<b>Binary-Binary RBM:</b>
+<p>
+
+<p>RBMs were first developed using binary units in both the visible and hidden layer. The corresponding energy function is defined as follows:</p>
+$$
+\begin{align}
+	E(\mathbf{x}, \mathbf{h}) = - \sum_i^M x_i a_i- \sum_j^N b_j h_j - \sum_{i,j}^{M,N} x_i w_{ij} h_j,
+\label{_auto18}
+\end{align}
+$$
+
+<p>where the binary values taken on by the nodes are most commonly 0 and 1.</p>
+</div>
+
+<div class="alert alert-block alert-block alert-text-normal">
+<b>Gaussian-Binary RBM:</b>
+<p>
+
+<p>Another varient is the RBM where the visible units are Gaussian while the hidden units remain binary:</p>
+$$
+\begin{align}
+	E(\mathbf{x}, \mathbf{h}) = \sum_i^M \frac{(x_i - a_i)^2}{2\sigma_i^2} - \sum_j^N b_j h_j - \sum_{i,j}^{M,N} \frac{x_i w_{ij} h_j}{\sigma_i^2}. 
+\label{_auto19}
+\end{align}
+$$
+</div>
+
+
+<ol>
+<li> RBMs are Useful when we model continuous data (i.e., we wish \( \mathbf{x} \) to be continuous)</li>
+<li> Requires a smaller learning rate, since there's no upper bound to the value a component might take in the reconstruction</li>
+</ol>
+<p>Other types of units include:</p>
+<ol>
+<li> Softmax and multinomial units</li>
+<li> Gaussian visible and hidden units</li>
+<li> Binomial units</li>
+<li> Rectified linear units</li>
+</ol>
+<h2 id="rbms-for-the-quantum-many-body-problem">RBMs for the quantum many body problem </h2>
+
+<p>The idea of applying RBMs to quantum many body problems was presented by G. Carleo and M. Troyer, working with ETH Zurich and Microsoft Research.</p>
+
+<p>Some of their motivation included</p>
+
+<ul>
+<li> The wave function \( \Psi \) is a monolithic mathematical quantity that contains all the information on a quantum state, be it a single particle or a complex molecule. In principle, an exponential amount of information is needed to fully encode a generic many-body quantum state.</li>
+<li> There are still interesting open problems, including fundamental questions ranging from the dynamical properties of high-dimensional systems to the exact ground-state properties of strongly interacting fermions.</li>
+<li> The difficulty lies in finding a general strategy to reduce the exponential complexity of the full many-body wave function down to its most essential features. That is
+<ol type="a"></li>
+<li> Dimensional reduction</li>
+<li> Feature extraction</li>
+</ol>
+<li> Among the most successful techniques to attack these challenges, artifical neural networks play a prominent role.</li>
+<li> Want to understand whether an artifical neural network may adapt to describe a quantum system.</li>
+</ul>
+<p>Carleo and Troyer applied the RBM to the quantum mechanical spin lattice systems of the Ising model and Heisenberg model, with encouraging results. Our goal is to test the method on systems of moving particles. For the spin lattice systems it was natural to use a binary-binary RBM, with the nodes taking values of 1 and -1. For moving particles, on the other hand, we want the visible nodes to be continuous, representing position coordinates. Thus, we start by choosing a Gaussian-binary RBM, where the visible nodes are continuous and hidden nodes take on values of 0 or 1. If eventually we would like the hidden nodes to be continuous as well the rectified linear units seem like the most relevant choice.</p>
+<h2 id="representing-the-wave-function">Representing the wave function </h2>
+
+<p>The wavefunction should be a probability amplitude depending on
+ \( \boldsymbol{x} \). The RBM model is given by the joint distribution of
+ \( \boldsymbol{x} \) and \( \boldsymbol{h} \)
+</p>
+
+$$
+\begin{align}
+        F_{rbm}(\mathbf{x},\mathbf{h}) = \frac{1}{Z} e^{-\frac{1}{T_0}E(\mathbf{x},\mathbf{h})}.
+\label{_auto20}
+\end{align}
+$$
+
+<p>To find the marginal distribution of \( \boldsymbol{x} \) we set:</p>
+
+$$
+\begin{align}
+        F_{rbm}(\mathbf{x}) &= \sum_\mathbf{h} F_{rbm}(\mathbf{x}, \mathbf{h}) 
+\label{_auto21}\\
+                                &= \frac{1}{Z}\sum_\mathbf{h} e^{-E(\mathbf{x}, \mathbf{h})}.
+\label{_auto22}
+\end{align}
+$$
+
+<p>Now this is what we use to represent the wave function, calling it a neural-network quantum state (NQS)</p>
+$$
+\begin{align}
+        \Psi (\mathbf{X}) &= F_{rbm}(\mathbf{x}) 
+\label{_auto23}\\
+        &= \frac{1}{Z}\sum_{\boldsymbol{h}} e^{-E(\mathbf{x}, \mathbf{h})} 
+\label{_auto24}\\
+        &= \frac{1}{Z} \sum_{\{h_j\}} e^{-\sum_i^M \frac{(x_i - a_i)^2}{2\sigma^2} + \sum_j^N b_j h_j + \sum_\
+{i,j}^{M,N} \frac{x_i w_{ij} h_j}{\sigma^2}} 
+\label{_auto25}\\
+        &= \frac{1}{Z} e^{-\sum_i^M \frac{(x_i - a_i)^2}{2\sigma^2}} \prod_j^N (1 + e^{b_j + \sum_i^M \frac{x\
+_i w_{ij}}{\sigma^2}}). 
+\label{_auto26}\\
+\label{_auto27}
+\end{align}
+$$
+<h2 id="choose-the-cost-function">Choose the cost function </h2>
+
+<p>Now we don't necessarily have training data (unless we generate it by using some other method). However, what we do have is the variational principle which allows us to obtain the ground state wave function by minimizing the expectation value of the energy of a trial wavefunction (corresponding to the untrained NQS). Similarly to the traditional variational Monte Carlo method then, it is the local energy we wish to minimize. The gradient to use for the stochastic gradient descent procedure is</p>
+
+$$
+\begin{align}
+	C_i = \frac{\partial \langle E_L \rangle}{\partial \theta_i}
+	= 2(\langle E_L \frac{1}{\Psi}\frac{\partial \Psi}{\partial \theta_i} \rangle - \langle E_L \rangle \langle \frac{1}{\Psi}\frac{\partial \Psi}{\partial \theta_i} \rangle ),
+\label{_auto28}
+\end{align}
+$$
+
+<p>where the local energy is given by</p>
+$$
+\begin{align}
+	E_L = \frac{1}{\Psi} \hat{\mathbf{H}} \Psi.
+\label{_auto29}
+\end{align}
+$$
+<h2 id="neural-quantum-states">Neural Quantum States </h2>
+
+<p>The wavefunction should be a probability amplitude depending on \( \boldsymbol{x} \). The RBM model is given by the joint distribution of \( \boldsymbol{x} \) and \( \boldsymbol{h} \)</p>
+$$
+\begin{align}
+	F_{rbm}(\boldsymbol{x},\mathbf{h}) = \frac{1}{Z} e^{-\frac{1}{T_0}E(\boldsymbol{x},\mathbf{h})}
+\label{_auto30}
+\end{align}
+$$
+
+<p>To find the marginal distribution of \( \boldsymbol{x} \) we set:</p>
+
+$$
+\begin{align}
+	F_{rbm}(\mathbf{x}) &= \sum_\mathbf{h} F_{rbm}(\mathbf{x}, \mathbf{h}) 
+\label{_auto31}\\
+				&= \frac{1}{Z}\sum_\mathbf{h} e^{-E(\mathbf{x}, \mathbf{h})}
+\label{_auto32}
+\end{align}
+$$
+
+<p>Now this is what we use to represent the wave function, calling it a neural-network quantum state (NQS)</p>
+
+$$
+\begin{align}
+	\Psi (\mathbf{X}) &= F_{rbm}(\mathbf{x}) 
+\label{_auto33}\\
+	&= \frac{1}{Z}\sum_{\boldsymbol{h}} e^{-E(\mathbf{x}, \mathbf{h})} 
+\label{_auto34}\\
+	&= \frac{1}{Z} \sum_{\{h_j\}} e^{-\sum_i^M \frac{(x_i - a_i)^2}{2\sigma^2} + \sum_j^N b_j h_j + \sum_{i,j}^{M,N} \frac{x_i w_{ij} h_j}{\sigma^2}} 
+\label{_auto35}\\
+	&= \frac{1}{Z} e^{-\sum_i^M \frac{(x_i - a_i)^2}{2\sigma^2}} \prod_j^N (1 + e^{b_j + \sum_i^M \frac{x_i w_{ij}}{\sigma^2}}) 
+\label{_auto36}\\
+\label{_auto37}
+\end{align}
+$$
+
+<p>The above wavefunction is the most general one because it allows for
+complex valued wavefunctions. However it fundamentally changes the
+probabilistic foundation of the RBM, because what is usually a
+probability in the RBM framework is now a an amplitude. This means
+that a lot of the theoretical framework usually used to interpret the
+model, i.e. graphical models, conditional probabilities, and Markov
+random fields, breaks down. If we assume the wavefunction to be
+postive definite, however, we can use the RBM to represent the squared
+wavefunction, and thereby a probability. This also makes it possible
+to sample from the model using Gibbs sampling, because we can obtain
+the conditional probabilities.
+</p>
+
+$$
+\begin{align}
+	|\Psi (\mathbf{X})|^2 &= F_{rbm}(\mathbf{X}) 
+\label{_auto38}\\
+	\Rightarrow \Psi (\mathbf{X}) &= \sqrt{F_{rbm}(\mathbf{X})} 
+\label{_auto39}\\
+	&= \frac{1}{\sqrt{Z}}\sqrt{\sum_{\{h_j\}} e^{-E(\mathbf{X}, \mathbf{h})}} 
+\label{_auto40}\\
+	&= \frac{1}{\sqrt{Z}} \sqrt{\sum_{\{h_j\}} e^{-\sum_i^M \frac{(X_i - a_i)^2}{2\sigma^2} + \sum_j^N b_j h_j + \sum_{i,j}^{M,N} \frac{X_i w_{ij} h_j}{\sigma^2}} }
+\label{_auto41}\\
+	&= \frac{1}{\sqrt{Z}} e^{-\sum_i^M \frac{(X_i - a_i)^2}{4\sigma^2}} \sqrt{\sum_{\{h_j\}} \prod_j^N e^{b_j h_j + \sum_i^M \frac{X_i w_{ij} h_j}{\sigma^2}}} 
+\label{_auto42}\\
+	&= \frac{1}{\sqrt{Z}} e^{-\sum_i^M \frac{(X_i - a_i)^2}{4\sigma^2}} \sqrt{\prod_j^N \sum_{h_j}  e^{b_j h_j + \sum_i^M \frac{X_i w_{ij} h_j}{\sigma^2}}} 
+\label{_auto43}\\
+	&= \frac{1}{\sqrt{Z}} e^{-\sum_i^M \frac{(X_i - a_i)^2}{4\sigma^2}} \prod_j^N \sqrt{e^0 + e^{b_j + \sum_i^M \frac{X_i w_{ij}}{\sigma^2}}} 
+\label{_auto44}\\
+	&= \frac{1}{\sqrt{Z}} e^{-\sum_i^M \frac{(X_i - a_i)^2}{4\sigma^2}} \prod_j^N \sqrt{1 + e^{b_j + \sum_i^M \frac{X_i w_{ij}}{\sigma^2}}} 
+\label{_auto45}\\
+\label{_auto46}
+\end{align}
+$$
+<h3 id="cost-function">Cost function </h3>
+
+<p>This is where we deviate from what is common in machine
+learning. Rather than defining a cost function based on some dataset,
+our cost function is the energy of the quantum mechanical system. From
+the variational principle we know that minizing this energy should
+lead to the ground state wavefunction. As stated previously the local
+energy is given by
+</p>
+
+$$
+\begin{align}
+	E_L = \frac{1}{\Psi} \hat{\mathbf{H}} \Psi,
+\label{_auto47}
+\end{align}
+$$
+
+<p>and the gradient is</p>
+
+$$
+\begin{align}
+	G_i = \frac{\partial \langle E_L \rangle}{\partial \alpha_i}
+	= 2(\langle E_L \frac{1}{\Psi}\frac{\partial \Psi}{\partial \alpha_i} \rangle - \langle E_L \rangle \langle \frac{1}{\Psi}\frac{\partial \Psi}{\partial \alpha_i} \rangle ),
+\label{_auto48}
+\end{align}
+$$
+
+<p>where \( \alpha_i = a_1,...,a_M,b_1,...,b_N,w_{11},...,w_{MN} \).</p>
+
+<p>We use that \( \frac{1}{\Psi}\frac{\partial \Psi}{\partial \alpha_i} 
+	= \frac{\partial \ln{\Psi}}{\partial \alpha_i} \),
+and find
+</p>
+
+$$
+\begin{align}
+	\ln{\Psi({\mathbf{X}})} &= -\ln{Z} - \sum_m^M \frac{(X_m - a_m)^2}{2\sigma^2}
+	+ \sum_n^N \ln({1 + e^{b_n + \sum_i^M \frac{X_i w_{in}}{\sigma^2}})}.
+\label{_auto49}
+\end{align}
+$$
+
+<p>This gives</p>
+
+$$
+\begin{align}
+	\frac{\partial }{\partial a_m} \ln\Psi
+	&= 	\frac{1}{\sigma^2} (X_m - a_m) 
+\label{_auto50}\\
+	\frac{\partial }{\partial b_n} \ln\Psi
+	&=
+	\frac{1}{e^{-b_n-\frac{1}{\sigma^2}\sum_i^M X_i w_{in}} + 1} 
+\label{_auto51}\\
+	\frac{\partial }{\partial w_{mn}} \ln\Psi
+	&= \frac{X_m}{\sigma^2(e^{-b_n-\frac{1}{\sigma^2}\sum_i^M X_i w_{in}} + 1)}.
+\label{_auto52}
+\end{align}
+$$
+
+<p>If \( \Psi = \sqrt{F_{rbm}} \) we have</p>
+
+$$
+\begin{align}
+	\ln{\Psi({\mathbf{X}})} &= -\frac{1}{2}\ln{Z} - \sum_m^M \frac{(X_m - a_m)^2}{4\sigma^2}
+	+ \frac{1}{2}\sum_n^N \ln({1 + e^{b_n + \sum_i^M \frac{X_i w_{in}}{\sigma^2}})},
+\label{_auto53}
+\end{align}
+$$
+
+<p>which results in</p>
+
+$$
+\begin{align}
+	\frac{\partial }{\partial a_m} \ln\Psi
+	&= 	\frac{1}{2\sigma^2} (X_m - a_m) 
+\label{_auto54}\\
+	\frac{\partial }{\partial b_n} \ln\Psi
+	&=
+	\frac{1}{2(e^{-b_n-\frac{1}{\sigma^2}\sum_i^M X_i w_{in}} + 1)} 
+\label{_auto55}\\
+	\frac{\partial }{\partial w_{mn}} \ln\Psi
+	&= \frac{X_m}{2\sigma^2(e^{-b_n-\frac{1}{\sigma^2}\sum_i^M X_i w_{in}} + 1)}.
+\label{_auto56}
+\end{align}
+$$
+
+<p>Let us assume again that our Hamiltonian is </p>
+$$
+\begin{align}
+	\hat{\mathbf{H}} = \sum_p^P (-\frac{1}{2}\nabla_p^2 + \frac{1}{2}\omega^2 r_p^2 ) + \sum_{p < q} \frac{1}{r_{pq}},
+\label{_auto57}
+\end{align}
+$$
+
+<p>where the first summation term represents the standard harmonic
+oscillator part and the latter the repulsive interaction between two
+electrons. Natural units (\( \hbar=c=e=m_e=1 \)) are used, and \( P \) is the
+number of particles. This gives us the following expression for the
+local energy (\( D \) being the number of dimensions)
+</p>
+
+$$
+\begin{align}
+	E_L &= \frac{1}{\Psi} \mathbf{H} \Psi 
+\label{_auto58}\\
+	&= \frac{1}{\Psi} (\sum_p^P (-\frac{1}{2}\nabla_p^2 + \frac{1}{2}\omega^2 r_p^2 ) + \sum_{p < q} \frac{1}{r_{pq}}) \Psi 
+\label{_auto59}\\
+	&= -\frac{1}{2}\frac{1}{\Psi} \sum_p^P \nabla_p^2 \Psi 
+	+ \frac{1}{2}\omega^2 \sum_p^P  r_p^2  + \sum_{p < q} \frac{1}{r_{pq}} 
+\label{_auto60}\\
+	&= -\frac{1}{2}\frac{1}{\Psi} \sum_p^P \sum_d^D \frac{\partial^2 \Psi}{\partial x_{pd}^2} + \frac{1}{2}\omega^2 \sum_p^P  r_p^2  + \sum_{p < q} \frac{1}{r_{pq}} 
+\label{_auto61}\\
+	&= \frac{1}{2} \sum_p^P \sum_d^D (-(\frac{\partial}{\partial x_{pd}} \ln\Psi)^2 -\frac{\partial^2}{\partial x_{pd}^2} \ln\Psi + \omega^2 x_{pd}^2)  + \sum_{p < q} \frac{1}{r_{pq}}. 
+\label{_auto62}\\
+\label{_auto63}
+\end{align}
+$$
+
+<p>Letting each visible node in the Boltzmann machine 
+represent one coordinate of one particle, we obtain
+</p>
+
+$$
+\begin{align}
+	E_L &=
+	\frac{1}{2} \sum_m^M (-(\frac{\partial}{\partial v_m} \ln\Psi)^2 -\frac{\partial^2}{\partial v_m^2} \ln\Psi + \omega^2 v_m^2)  + \sum_{p < q} \frac{1}{r_{pq}},
+\label{_auto64}
+\end{align}
+$$
+
+<p>where we have that</p>
+
+$$
+\begin{align}
+	\frac{\partial}{\partial x_m} \ln\Psi
+	&= - \frac{1}{\sigma^2}(x_m - a_m) + \frac{1}{\sigma^2} \sum_n^N \frac{w_{mn}}{e^{-b_n - \frac{1}{\sigma^2}\sum_i^M x_i w_{in}} + 1} 
+\label{_auto65}\\
+	\frac{\partial^2}{\partial x_m^2} \ln\Psi
+	&= - \frac{1}{\sigma^2} + \frac{1}{\sigma^4}\sum_n^N \omega_{mn}^2 \frac{e^{b_n + \frac{1}{\sigma^2}\sum_i^M x_i w_{in}}}{(e^{b_n + \frac{1}{\sigma^2}\sum_i^M x_i w_{in}} + 1)^2}.
+\label{_auto66}
+\end{align}
+$$
+
+<p>We now have all the expressions neeeded to calculate the gradient of
+the expected local energy with respect to the RBM parameters
+\( \frac{\partial \langle E_L \rangle}{\partial \alpha_i} \).
+</p>
+
+<p>If we use \( \Psi = \sqrt{F_{rbm}} \) we obtain</p>
+$$
+\begin{align}
+	\frac{\partial}{\partial x_m} \ln\Psi
+	&= - \frac{1}{2\sigma^2}(x_m - a_m) + \frac{1}{2\sigma^2} \sum_n^N
+ 	\frac{w_{mn}}{e^{-b_n-\frac{1}{\sigma^2}\sum_i^M x_i w_{in}} + 1}
+	
+\label{_auto67}\\
+	\frac{\partial^2}{\partial x_m^2} \ln\Psi
+	&= - \frac{1}{2\sigma^2} + \frac{1}{2\sigma^4}\sum_n^N \omega_{mn}^2 \frac{e^{b_n + \frac{1}{\sigma^2}\sum_i^M x_i w_{in}}}{(e^{b_n + \frac{1}{\sigma^2}\sum_i^M x_i w_{in}} + 1)^2}.
+\label{_auto68}
+\end{align}
+$$
+
+<p>The difference between this equation and the previous one is that we multiply by a factor \( 1/2 \).</p>
+<h2 id="python-version-for-the-two-non-interacting-particles">Python version for the two non-interacting particles </h2>
+
+
+<!-- code=python (!bc pycod) typeset with pygments style "default" -->
+<div class="cell border-box-sizing code_cell rendered">
+  <div class="input">
+    <div class="inner_cell">
+      <div class="input_area">
+        <div class="highlight" style="background: #f8f8f8">
+  <pre style="line-height: 125%;"><span style="color: #408080; font-style: italic"># 2-electron VMC code for 2dim quantum dot with importance sampling</span>
+<span style="color: #408080; font-style: italic"># Using gaussian rng for new positions and Metropolis- Hastings </span>
+<span style="color: #408080; font-style: italic"># Added restricted boltzmann machine method for dealing with the wavefunction</span>
+<span style="color: #408080; font-style: italic"># RBM code based heavily off of:</span>
+<span style="color: #408080; font-style: italic"># https://github.com/CompPhysics/ComputationalPhysics2/tree/gh-pages/doc/Programs/BoltzmannMachines/MLcpp/src/CppCode/ob</span>
+<span style="color: #008000; font-weight: bold">from</span> <span style="color: #0000FF; font-weight: bold">math</span> <span style="color: #008000; font-weight: bold">import</span> exp, sqrt
+<span style="color: #008000; font-weight: bold">from</span> <span style="color: #0000FF; font-weight: bold">random</span> <span style="color: #008000; font-weight: bold">import</span> random, seed, normalvariate
+<span style="color: #008000; font-weight: bold">import</span> <span style="color: #0000FF; font-weight: bold">numpy</span> <span style="color: #008000; font-weight: bold">as</span> <span style="color: #0000FF; font-weight: bold">np</span>
+<span style="color: #008000; font-weight: bold">import</span> <span style="color: #0000FF; font-weight: bold">matplotlib.pyplot</span> <span style="color: #008000; font-weight: bold">as</span> <span style="color: #0000FF; font-weight: bold">plt</span>
+<span style="color: #008000; font-weight: bold">from</span> <span style="color: #0000FF; font-weight: bold">mpl_toolkits.mplot3d</span> <span style="color: #008000; font-weight: bold">import</span> Axes3D
+<span style="color: #008000; font-weight: bold">from</span> <span style="color: #0000FF; font-weight: bold">matplotlib</span> <span style="color: #008000; font-weight: bold">import</span> cm
+<span style="color: #008000; font-weight: bold">from</span> <span style="color: #0000FF; font-weight: bold">matplotlib.ticker</span> <span style="color: #008000; font-weight: bold">import</span> LinearLocator, FormatStrFormatter
+<span style="color: #008000; font-weight: bold">import</span> <span style="color: #0000FF; font-weight: bold">sys</span>
+
+
+
+<span style="color: #408080; font-style: italic"># Trial wave function for the 2-electron quantum dot in two dims</span>
+<span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">WaveFunction</span>(r,a,b,w):
+    sigma<span style="color: #666666">=1.0</span>
+    sig2 <span style="color: #666666">=</span> sigma<span style="color: #666666">**2</span>
+    Psi1 <span style="color: #666666">=</span> <span style="color: #666666">0.0</span>
+    Psi2 <span style="color: #666666">=</span> <span style="color: #666666">1.0</span>
+    Q <span style="color: #666666">=</span> Qfac(r,b,w)
+    
+    <span style="color: #008000; font-weight: bold">for</span> iq <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(NumberParticles):
+        <span style="color: #008000; font-weight: bold">for</span> ix <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(Dimension):
+            Psi1 <span style="color: #666666">+=</span> (r[iq,ix]<span style="color: #666666">-</span>a[iq,ix])<span style="color: #666666">**2</span>
+            
+    <span style="color: #008000; font-weight: bold">for</span> ih <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(NumberHidden):
+        Psi2 <span style="color: #666666">*=</span> (<span style="color: #666666">1.0</span> <span style="color: #666666">+</span> np<span style="color: #666666">.</span>exp(Q[ih]))
+        
+    Psi1 <span style="color: #666666">=</span> np<span style="color: #666666">.</span>exp(<span style="color: #666666">-</span>Psi1<span style="color: #666666">/</span>(<span style="color: #666666">2*</span>sig2))
+
+    <span style="color: #008000; font-weight: bold">return</span> Psi1<span style="color: #666666">*</span>Psi2
+
+<span style="color: #408080; font-style: italic"># Local energy  for the 2-electron quantum dot in two dims, using analytical local energy</span>
+<span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">LocalEnergy</span>(r,a,b,w):
+    sigma<span style="color: #666666">=1.0</span>
+    sig2 <span style="color: #666666">=</span> sigma<span style="color: #666666">**2</span>
+    locenergy <span style="color: #666666">=</span> <span style="color: #666666">0.0</span>
+    
+    Q <span style="color: #666666">=</span> Qfac(r,b,w)
+
+    <span style="color: #008000; font-weight: bold">for</span> iq <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(NumberParticles):
+        <span style="color: #008000; font-weight: bold">for</span> ix <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(Dimension):
+            sum1 <span style="color: #666666">=</span> <span style="color: #666666">0.0</span>
+            sum2 <span style="color: #666666">=</span> <span style="color: #666666">0.0</span>
+            <span style="color: #008000; font-weight: bold">for</span> ih <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(NumberHidden):
+                sum1 <span style="color: #666666">+=</span> w[iq,ix,ih]<span style="color: #666666">/</span>(<span style="color: #666666">1+</span>np<span style="color: #666666">.</span>exp(<span style="color: #666666">-</span>Q[ih]))
+                sum2 <span style="color: #666666">+=</span> w[iq,ix,ih]<span style="color: #666666">**2</span> <span style="color: #666666">*</span> np<span style="color: #666666">.</span>exp(Q[ih]) <span style="color: #666666">/</span> (<span style="color: #666666">1.0</span> <span style="color: #666666">+</span> np<span style="color: #666666">.</span>exp(Q[ih]))<span style="color: #666666">**2</span>
+    
+            dlnpsi1 <span style="color: #666666">=</span> <span style="color: #666666">-</span>(r[iq,ix] <span style="color: #666666">-</span> a[iq,ix]) <span style="color: #666666">/</span>sig2 <span style="color: #666666">+</span> sum1<span style="color: #666666">/</span>sig2
+            dlnpsi2 <span style="color: #666666">=</span> <span style="color: #666666">-1/</span>sig2 <span style="color: #666666">+</span> sum2<span style="color: #666666">/</span>sig2<span style="color: #666666">**2</span>
+            locenergy <span style="color: #666666">+=</span> <span style="color: #666666">0.5*</span>(<span style="color: #666666">-</span>dlnpsi1<span style="color: #666666">*</span>dlnpsi1 <span style="color: #666666">-</span> dlnpsi2 <span style="color: #666666">+</span> r[iq,ix]<span style="color: #666666">**2</span>)
+            
+    <span style="color: #008000; font-weight: bold">if</span>(interaction<span style="color: #666666">==</span><span style="color: #008000; font-weight: bold">True</span>):
+        <span style="color: #008000; font-weight: bold">for</span> iq1 <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(NumberParticles):
+            <span style="color: #008000; font-weight: bold">for</span> iq2 <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(iq1):
+                distance <span style="color: #666666">=</span> <span style="color: #666666">0.0</span>
+                <span style="color: #008000; font-weight: bold">for</span> ix <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(Dimension):
+                    distance <span style="color: #666666">+=</span> (r[iq1,ix] <span style="color: #666666">-</span> r[iq2,ix])<span style="color: #666666">**2</span>
+                    
+                locenergy <span style="color: #666666">+=</span> <span style="color: #666666">1/</span>sqrt(distance)
+                
+    <span style="color: #008000; font-weight: bold">return</span> locenergy
+
+<span style="color: #408080; font-style: italic"># Derivate of wave function ansatz as function of variational parameters</span>
+<span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">DerivativeWFansatz</span>(r,a,b,w):
+    
+    sigma<span style="color: #666666">=1.0</span>
+    sig2 <span style="color: #666666">=</span> sigma<span style="color: #666666">**2</span>
+    
+    Q <span style="color: #666666">=</span> Qfac(r,b,w)
+    
+    WfDer <span style="color: #666666">=</span> np<span style="color: #666666">.</span>empty((<span style="color: #666666">3</span>,),dtype<span style="color: #666666">=</span><span style="color: #008000">object</span>)
+    WfDer <span style="color: #666666">=</span> [np<span style="color: #666666">.</span>copy(a),np<span style="color: #666666">.</span>copy(b),np<span style="color: #666666">.</span>copy(w)]
+    
+    WfDer[<span style="color: #666666">0</span>] <span style="color: #666666">=</span> (r<span style="color: #666666">-</span>a)<span style="color: #666666">/</span>sig2
+    WfDer[<span style="color: #666666">1</span>] <span style="color: #666666">=</span> <span style="color: #666666">1</span> <span style="color: #666666">/</span> (<span style="color: #666666">1</span> <span style="color: #666666">+</span> np<span style="color: #666666">.</span>exp(<span style="color: #666666">-</span>Q))
+    
+    <span style="color: #008000; font-weight: bold">for</span> ih <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(NumberHidden):
+        WfDer[<span style="color: #666666">2</span>][:,:,ih] <span style="color: #666666">=</span> w[:,:,ih] <span style="color: #666666">/</span> (sig2<span style="color: #666666">*</span>(<span style="color: #666666">1+</span>np<span style="color: #666666">.</span>exp(<span style="color: #666666">-</span>Q[ih])))
+            
+    <span style="color: #008000; font-weight: bold">return</span>  WfDer
+
+<span style="color: #408080; font-style: italic"># Setting up the quantum force for the two-electron quantum dot, recall that it is a vector</span>
+<span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">QuantumForce</span>(r,a,b,w):
+
+    sigma<span style="color: #666666">=1.0</span>
+    sig2 <span style="color: #666666">=</span> sigma<span style="color: #666666">**2</span>
+    
+    qforce <span style="color: #666666">=</span> np<span style="color: #666666">.</span>zeros((NumberParticles,Dimension), np<span style="color: #666666">.</span>double)
+    sum1 <span style="color: #666666">=</span> np<span style="color: #666666">.</span>zeros((NumberParticles,Dimension), np<span style="color: #666666">.</span>double)
+    
+    Q <span style="color: #666666">=</span> Qfac(r,b,w)
+    
+    <span style="color: #008000; font-weight: bold">for</span> ih <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(NumberHidden):
+        sum1 <span style="color: #666666">+=</span> w[:,:,ih]<span style="color: #666666">/</span>(<span style="color: #666666">1+</span>np<span style="color: #666666">.</span>exp(<span style="color: #666666">-</span>Q[ih]))
+    
+    qforce <span style="color: #666666">=</span> <span style="color: #666666">2*</span>(<span style="color: #666666">-</span>(r<span style="color: #666666">-</span>a)<span style="color: #666666">/</span>sig2 <span style="color: #666666">+</span> sum1<span style="color: #666666">/</span>sig2)
+    
+    <span style="color: #008000; font-weight: bold">return</span> qforce
+    
+<span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">Qfac</span>(r,b,w):
+    Q <span style="color: #666666">=</span> np<span style="color: #666666">.</span>zeros((NumberHidden), np<span style="color: #666666">.</span>double)
+    temp <span style="color: #666666">=</span> np<span style="color: #666666">.</span>zeros((NumberHidden), np<span style="color: #666666">.</span>double)
+    
+    <span style="color: #008000; font-weight: bold">for</span> ih <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(NumberHidden):
+        temp[ih] <span style="color: #666666">=</span> (r<span style="color: #666666">*</span>w[:,:,ih])<span style="color: #666666">.</span>sum()
+        
+    Q <span style="color: #666666">=</span> b <span style="color: #666666">+</span> temp
+    
+    <span style="color: #008000; font-weight: bold">return</span> Q
+    
+<span style="color: #408080; font-style: italic"># Computing the derivative of the energy and the energy </span>
+<span style="color: #008000; font-weight: bold">def</span> <span style="color: #0000FF">EnergyMinimization</span>(a,b,w):
+
+    NumberMCcycles<span style="color: #666666">=</span> <span style="color: #666666">10000</span>
+    <span style="color: #408080; font-style: italic"># Parameters in the Fokker-Planck simulation of the quantum force</span>
+    D <span style="color: #666666">=</span> <span style="color: #666666">0.5</span>
+    TimeStep <span style="color: #666666">=</span> <span style="color: #666666">0.05</span>
+    <span style="color: #408080; font-style: italic"># positions</span>
+    PositionOld <span style="color: #666666">=</span> np<span style="color: #666666">.</span>zeros((NumberParticles,Dimension), np<span style="color: #666666">.</span>double)
+    PositionNew <span style="color: #666666">=</span> np<span style="color: #666666">.</span>zeros((NumberParticles,Dimension), np<span style="color: #666666">.</span>double)
+    <span style="color: #408080; font-style: italic"># Quantum force</span>
+    QuantumForceOld <span style="color: #666666">=</span> np<span style="color: #666666">.</span>zeros((NumberParticles,Dimension), np<span style="color: #666666">.</span>double)
+    QuantumForceNew <span style="color: #666666">=</span> np<span style="color: #666666">.</span>zeros((NumberParticles,Dimension), np<span style="color: #666666">.</span>double)
+
+    <span style="color: #408080; font-style: italic"># seed for rng generator </span>
+    seed()
+    energy <span style="color: #666666">=</span> <span style="color: #666666">0.0</span>
+    DeltaE <span style="color: #666666">=</span> <span style="color: #666666">0.0</span>
+
+    EnergyDer <span style="color: #666666">=</span> np<span style="color: #666666">.</span>empty((<span style="color: #666666">3</span>,),dtype<span style="color: #666666">=</span><span style="color: #008000">object</span>)
+    DeltaPsi <span style="color: #666666">=</span> np<span style="color: #666666">.</span>empty((<span style="color: #666666">3</span>,),dtype<span style="color: #666666">=</span><span style="color: #008000">object</span>)
+    DerivativePsiE <span style="color: #666666">=</span> np<span style="color: #666666">.</span>empty((<span style="color: #666666">3</span>,),dtype<span style="color: #666666">=</span><span style="color: #008000">object</span>)
+    EnergyDer <span style="color: #666666">=</span> [np<span style="color: #666666">.</span>copy(a),np<span style="color: #666666">.</span>copy(b),np<span style="color: #666666">.</span>copy(w)]
+    DeltaPsi <span style="color: #666666">=</span> [np<span style="color: #666666">.</span>copy(a),np<span style="color: #666666">.</span>copy(b),np<span style="color: #666666">.</span>copy(w)]
+    DerivativePsiE <span style="color: #666666">=</span> [np<span style="color: #666666">.</span>copy(a),np<span style="color: #666666">.</span>copy(b),np<span style="color: #666666">.</span>copy(w)]
+    <span style="color: #008000; font-weight: bold">for</span> i <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(<span style="color: #666666">3</span>): EnergyDer[i]<span style="color: #666666">.</span>fill(<span style="color: #666666">0.0</span>)
+    <span style="color: #008000; font-weight: bold">for</span> i <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(<span style="color: #666666">3</span>): DeltaPsi[i]<span style="color: #666666">.</span>fill(<span style="color: #666666">0.0</span>)
+    <span style="color: #008000; font-weight: bold">for</span> i <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(<span style="color: #666666">3</span>): DerivativePsiE[i]<span style="color: #666666">.</span>fill(<span style="color: #666666">0.0</span>)
+
+    
+    <span style="color: #408080; font-style: italic">#Initial position</span>
+    <span style="color: #008000; font-weight: bold">for</span> i <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(NumberParticles):
+        <span style="color: #008000; font-weight: bold">for</span> j <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(Dimension):
+            PositionOld[i,j] <span style="color: #666666">=</span> normalvariate(<span style="color: #666666">0.0</span>,<span style="color: #666666">1.0</span>)<span style="color: #666666">*</span>sqrt(TimeStep)
+    wfold <span style="color: #666666">=</span> WaveFunction(PositionOld,a,b,w)
+    QuantumForceOld <span style="color: #666666">=</span> QuantumForce(PositionOld,a,b,w)
+
+    <span style="color: #408080; font-style: italic">#Loop over MC MCcycles</span>
+    <span style="color: #008000; font-weight: bold">for</span> MCcycle <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(NumberMCcycles):
+        <span style="color: #408080; font-style: italic">#Trial position moving one particle at the time</span>
+        <span style="color: #008000; font-weight: bold">for</span> i <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(NumberParticles):
+            <span style="color: #008000; font-weight: bold">for</span> j <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(Dimension):
+                PositionNew[i,j] <span style="color: #666666">=</span> PositionOld[i,j]<span style="color: #666666">+</span>normalvariate(<span style="color: #666666">0.0</span>,<span style="color: #666666">1.0</span>)<span style="color: #666666">*</span>sqrt(TimeStep)<span style="color: #666666">+</span>\
+                                       QuantumForceOld[i,j]<span style="color: #666666">*</span>TimeStep<span style="color: #666666">*</span>D
+            wfnew <span style="color: #666666">=</span> WaveFunction(PositionNew,a,b,w)
+            QuantumForceNew <span style="color: #666666">=</span> QuantumForce(PositionNew,a,b,w)
+            
+            GreensFunction <span style="color: #666666">=</span> <span style="color: #666666">0.0</span>
+            <span style="color: #008000; font-weight: bold">for</span> j <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(Dimension):
+                GreensFunction <span style="color: #666666">+=</span> <span style="color: #666666">0.5*</span>(QuantumForceOld[i,j]<span style="color: #666666">+</span>QuantumForceNew[i,j])<span style="color: #666666">*</span>\
+                                      (D<span style="color: #666666">*</span>TimeStep<span style="color: #666666">*0.5*</span>(QuantumForceOld[i,j]<span style="color: #666666">-</span>QuantumForceNew[i,j])<span style="color: #666666">-</span>\
+                                      PositionNew[i,j]<span style="color: #666666">+</span>PositionOld[i,j])
+      
+            GreensFunction <span style="color: #666666">=</span> exp(GreensFunction)
+            ProbabilityRatio <span style="color: #666666">=</span> GreensFunction<span style="color: #666666">*</span>wfnew<span style="color: #666666">**2/</span>wfold<span style="color: #666666">**2</span>
+            <span style="color: #408080; font-style: italic">#Metropolis-Hastings test to see whether we accept the move</span>
+            <span style="color: #008000; font-weight: bold">if</span> random() <span style="color: #666666">&lt;=</span> ProbabilityRatio:
+                <span style="color: #008000; font-weight: bold">for</span> j <span style="color: #AA22FF; font-weight: bold">in</span> <span style="color: #008000">range</span>(Dimension):
+                    PositionOld[i,j] <span style="color: #666666">=</span> PositionNew[i,j]
+                    QuantumForceOld[i,j] <span style="color: #666666">=</span> QuantumForceNew[i,j]
+                wfold <span style="color: #666666">=</span> wfnew
+        <span style="color: #408080; font-style: italic">#print(&quot;wf new:        &quot;, wfnew)</span>
+        <span style="color: #408080; font-style: italic">#print(&quot;force on 1 new:&quot;, QuantumForceNew[0,:])</span>
+        <span style="color: #408080; font-style: italic">#print(&quot;pos of 1 new:  &quot;, PositionNew[0,:])</span>
+        <span style="color: #408080; font-style: italic">#print(&quot;force on 2 new:&quot;, QuantumForceNew[1,:])</span>
+        <span style="color: #408080; font-style: italic">#print(&quot;pos of 2 new:  &quot;, PositionNew[1,:])</span>
+        DeltaE <span style="color: #666666">=</span> LocalEnergy(PositionOld,a,b,w)
+        DerPsi <span style="color: #666666">=</span> DerivativeWFansatz(PositionOld,a,b,w)
+        
+        DeltaPsi[<span style="color: #666666">0</span>] <span style="color: #666666">+=</span> DerPsi[<span style="color: #666666">0</span>]
+        DeltaPsi[<span style="color: #666666">1</span>] <span style="color: #666666">+=</span> DerPsi[<span style="color: #666666">1</span>]
+        DeltaPsi[<span style="color: #666666">2</span>] <span style="color: #666666">+=</span> DerPsi[<span style="color: #666666">2</span>]
+        
+        energy <span style="color: #666666">+=</span> DeltaE
+
+        DerivativePsiE[<span style="color: #666666">0</span>] <span style="color: #666666">+=</span> DerPsi[<span style="color: #666666">0</span>]<span style="color: #666666">*</span>DeltaE
+        DerivativePsiE[<span style="color: #666666">1</span>] <span style="color: #666666">+=</span> DerPsi[<span style="color: #666666">1</span>]<span style="color: #666666">*</span>DeltaE
+        DerivativePsiE[<span style="color: #666666">2</span>] <span style="color: #666666">+=</span> DerPsi[<span style="color: #666666">2</span>]<span style="color: #666666">*</span>DeltaE
+            
+    <span style="color: #408080; font-style: italic"># We calculate mean values</span>
+    energy <span style="color: #666666">/=</span> NumberMCcycles
+    DerivativePsiE[<span style="color: #666666">0</span>] <span style="color: #666666">/=</span> NumberMCcycles
+    DerivativePsiE[<span style="color: #666666">1</span>] <span style="color: #666666">/=</span> NumberMCcycles
+    DerivativePsiE[<span style="color: #666666">2</span>] <span style="color: #666666">/=</span> NumberMCcycles
+    DeltaPsi[<span style="color: #666666">0</span>] <span style="color: #666666">/=</span> NumberMCcycles
+    DeltaPsi[<span style="color: #666666">1</span>] <span style="color: #666666">/=</span> NumberMCcycles
+    DeltaPsi[<span style="color: #666666">2</span>] <span style="color: #666666">/=</span> NumberMCcycles
+    EnergyDer[<span style="color: #666666">0</span>]  <span style="color: #666666">=</span> <span style="color: #666666">2*</span>(DerivativePsiE[<span style="color: #666666">0</span>]<span style="color: #666666">-</span>DeltaPsi[<span style="color: #666666">0</span>]<span style="color: #666666">*</span>energy)
+    EnergyDer[<span style="color: #666666">1</span>]  <span style="color: #666666">=</span> <span style="color: #666666">2*</span>(DerivativePsiE[<span style="color: #666666">1</span>]<span style="color: #666666">-</span>DeltaPsi[<span style="color: #666666">1</span>]<span style="color: #666666">*</span>energy)
+    EnergyDer[<span style="color: #666666">2</span>]  <span style="color: #666666">=</span> <span style="color: #666666">2*</span>(DerivativePsiE[<span style="color: #666666">2</span>]<span style="color: #666666">-</span>DeltaPsi[<span style="color: #666666">2</span>]<span style="color: #666666">*</span>energy)
+    <span style="color: #008000; font-weight: bold">return</span> energy, EnergyDer
+
+
+<span style="color: #408080; font-style: italic">#Here starts the main program with variable declarations</span>
+NumberParticles <span style="color: #666666">=</span> <span style="color: #666666">2</span>
+Dimension <span style="color: #666666">=</span> <span style="color: #666666">2</span>
+NumberHidden <span style="color: #666666">=</span> <span style="color: #666666">2</span>
+
+interaction<span style="color: #666666">=</span><span style="color: #008000; font-weight: bold">False</span>
+
+<span style="color: #408080; font-style: italic"># guess for parameters</span>
+a<span style="color: #666666">=</span>np<span style="color: #666666">.</span>random<span style="color: #666666">.</span>normal(loc<span style="color: #666666">=0.0</span>, scale<span style="color: #666666">=0.001</span>, size<span style="color: #666666">=</span>(NumberParticles,Dimension))
+b<span style="color: #666666">=</span>np<span style="color: #666666">.</span>random<span style="color: #666666">.</span>normal(loc<span style="color: #666666">=0.0</span>, scale<span style="color: #666666">=0.001</span>, size<span style="color: #666666">=</span>(NumberHidden))
+w<span style="color: #666666">=</span>np<span style="color: #666666">.</span>random<span style="color: #666666">.</span>normal(loc<span style="color: #666666">=0.0</span>, scale<span style="color: #666666">=0.001</span>, size<span style="color: #666666">=</span>(NumberParticles,Dimension,NumberHidden))
+<span style="color: #408080; font-style: italic"># Set up iteration using stochastic gradient method</span>
+Energy <span style="color: #666666">=</span> <span style="color: #666666">0</span>
+EDerivative <span style="color: #666666">=</span> np<span style="color: #666666">.</span>empty((<span style="color: #666666">3</span>,),dtype<span style="color: #666666">=</span><span style="color: #008000">object</span>)
+EDerivative <span style="color: #666666">=</span> [np<span style="color: #666666">.</span>copy(a),np<span style="color: #666666">.</span>copy(b),np<span style="color: #666666">.</span>copy(w)]
+<span style="color: #408080; font-style: italic"># Learning rate eta, max iterations, need to change to adaptive learning rate</span>
+eta <span style="color: #666666">=</span> <span style="color: #666666">0.001</span>
+MaxIterations <span style="color: #666666">=</span> <span style="color: #666666">50</span>
+<span style="color: #008000">iter</span> <span style="color: #666666">=</span> <span style="color: #666666">0</span>
+np<span style="color: #666666">.</span>seterr(invalid<span style="color: #666666">=</span><span style="color: #BA2121">&#39;raise&#39;</span>)
+Energies <span style="color: #666666">=</span> np<span style="color: #666666">.</span>zeros(MaxIterations)
+EnergyDerivatives1 <span style="color: #666666">=</span> np<span style="color: #666666">.</span>zeros(MaxIterations)
+EnergyDerivatives2 <span style="color: #666666">=</span> np<span style="color: #666666">.</span>zeros(MaxIterations)
+
+<span style="color: #008000; font-weight: bold">while</span> <span style="color: #008000">iter</span> <span style="color: #666666">&lt;</span> MaxIterations:
+    Energy, EDerivative <span style="color: #666666">=</span> EnergyMinimization(a,b,w)
+    agradient <span style="color: #666666">=</span> EDerivative[<span style="color: #666666">0</span>]
+    bgradient <span style="color: #666666">=</span> EDerivative[<span style="color: #666666">1</span>]
+    wgradient <span style="color: #666666">=</span> EDerivative[<span style="color: #666666">2</span>]
+    a <span style="color: #666666">-=</span> eta<span style="color: #666666">*</span>agradient
+    b <span style="color: #666666">-=</span> eta<span style="color: #666666">*</span>bgradient 
+    w <span style="color: #666666">-=</span> eta<span style="color: #666666">*</span>wgradient 
+    Energies[<span style="color: #008000">iter</span>] <span style="color: #666666">=</span> Energy
+    <span style="color: #008000">print</span>(<span style="color: #BA2121">&quot;Energy:&quot;</span>,Energy)
+    <span style="color: #408080; font-style: italic">#EnergyDerivatives1[iter] = EDerivative[0] </span>
+    <span style="color: #408080; font-style: italic">#EnergyDerivatives2[iter] = EDerivative[1]</span>
+    <span style="color: #408080; font-style: italic">#EnergyDerivatives3[iter] = EDerivative[2] </span>
+
+
+    <span style="color: #008000">iter</span> <span style="color: #666666">+=</span> <span style="color: #666666">1</span>
+
+<span style="color: #408080; font-style: italic">#nice printout with Pandas</span>
+<span style="color: #008000; font-weight: bold">import</span> <span style="color: #0000FF; font-weight: bold">pandas</span> <span style="color: #008000; font-weight: bold">as</span> <span style="color: #0000FF; font-weight: bold">pd</span>
+<span style="color: #008000; font-weight: bold">from</span> <span style="color: #0000FF; font-weight: bold">pandas</span> <span style="color: #008000; font-weight: bold">import</span> DataFrame
+pd<span style="color: #666666">.</span>set_option(<span style="color: #BA2121">&#39;max_columns&#39;</span>, <span style="color: #666666">6</span>)
+data <span style="color: #666666">=</span>{<span style="color: #BA2121">&#39;Energy&#39;</span>:Energies}<span style="color: #408080; font-style: italic">#,&#39;A Derivative&#39;:EnergyDerivatives1,&#39;B Derivative&#39;:EnergyDerivatives2,&#39;Weights Derivative&#39;:EnergyDerivatives3}</span>
+
+frame <span style="color: #666666">=</span> pd<span style="color: #666666">.</span>DataFrame(data)
+<span style="color: #008000">print</span>(frame)
+</pre>
+</div>
+      </div>
+    </div>
+  </div>
+  <div class="output_wrapper">
+    <div class="output">
+      <div class="output_area">
+        <div class="output_subarea output_stream output_stdout output_text">          
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ------------------- end of main content --------------- -->
 <center style="font-size:80%">
